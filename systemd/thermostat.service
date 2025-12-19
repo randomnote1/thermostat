@@ -1,0 +1,20 @@
+[Unit]
+Description=Raspberry Pi Multi-Zone Thermostat
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/thermostat
+Environment="PATH=/home/pi/thermostat/venv/bin"
+ExecStart=/home/pi/thermostat/venv/bin/python3 /home/pi/thermostat/src/thermostat.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=thermostat
+
+[Install]
+WantedBy=multi-user.target

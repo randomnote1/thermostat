@@ -1,0 +1,6 @@
+w1thermsensor==2.3.0
+RPi.GPIO==0.7.1
+Pillow==10.1.0
+python-dotenv==1.0.0
+gpiozero==2.0.1
+spidev==3.6

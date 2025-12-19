@@ -1,0 +1,36 @@
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Configuration files (contain sensitive data)
+config.env
+*.env
+!config.example.env
+
+# Log files
+*.log
+logs/
+
+# E-ink display test outputs
+display_test.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Raspberry Pi specific
+*.img
+*.iso
