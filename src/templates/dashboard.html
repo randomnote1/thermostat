@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermostat Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header .status {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav a:hover, .nav a.active {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .temp-display {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .temp-value {
+            font-size: 4em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .temp-label {
+            color: #666;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+
+        .hvac-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .hvac-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .hvac-badge.on {
+            background: #48bb78;
+            color: white;
+        }
+
+        .hvac-badge.off {
+            background: #e2e8f0;
+            color: #718096;
+        }
+
+        .sensor-list {
+            list-style: none;
+        }
+
+        .sensor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .sensor-item.compromised {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+
+        .sensor-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .sensor-temp {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .sensor-item.compromised .sensor-temp {
+            color: #f56565;
+        }
+
+        .warning-icon {
+            color: #f56565;
+            margin-left: 8px;
+        }
+
+        .target-temps {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .target-temp {
+            text-align: center;
+        }
+
+        .target-temp .label {
+            color: #718096;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .target-temp .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .mode-display {
+            text-align: center;
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .mode-label {
+            color: #718096;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .mode-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2d3748;
+            text-transform: uppercase;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .temp-control {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #667eea;
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: #5568d3;
+            transform: scale(1.1);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 10px 0;
+        }
+
+        .control-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .mode-btn {
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mode-btn:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .fan-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            border-radius: 34px;
+            transition: 0.4s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.4s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #48bb78;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .fan-label {
+            font-weight: bold;
+            color: #2d3748;
+            font-size: 1.2em;
+        }
+
+        .schedule-status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .schedule-status.on-hold {
+            background: #fed7d7;
+            border: 1px solid #fc8181;
+            color: #742a2a;
+        }
+
+        .schedule-status.disabled {
+            background: #feebc8;
+            border: 1px solid #f6ad55;
+            color: #7c2d12;
+        }
+
+        .schedule-status.active {
+            background: #c6f6d5;
+            border: 1px solid #48bb78;
+            color: #22543d;
+        }
+
+        .schedule-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .schedule-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .schedule-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .temp-value {
+                font-size: 3em;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌡️ Thermostat Dashboard</h1>
+            <div class="status">Last updated: <span id="last-update">--</span></div>
+        </div>
+
+        <div class="nav">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/schedules">Schedules</a>
+            <a href="/history">History</a>
+        </div>
+
+        <div id="error-message" class="error" style="display: none;"></div>
+
+        <div class="grid">
+            <!-- System Temperature Card -->
+            <div class="card">
+                <h2>System Temperature</h2>
+                <div class="temp-display">
+                    <div class="temp-value" id="system-temp">--</div>
+                    <div class="temp-label">Current Temperature</div>
+                </div>
+            </div>
+
+            <!-- HVAC Status Card -->
+            <div class="card">
+                <h2>HVAC Status</h2>
+                <div class="mode-display">
+                    <div class="mode-label">Mode</div>
+                    <div class="mode-value" id="hvac-mode">OFF</div>
+                </div>
+                <div class="hvac-status" id="hvac-status">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Target Temperatures Card -->
+            <div class="card">
+                <h2>Target Temperatures</h2>
+                <div class="target-temps">
+                    <div class="target-temp">
+                        <div class="label">🔥 Heating</div>
+                        <div class="value" id="target-heat">--</div>
+                        <div class="temp-control">
+                            <button class="control-btn" onclick="adjustTemp('heat', -1)">−</button>
+                            <button class="control-btn" onclick="adjustTemp('heat', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="target-temp">
+                        <div class="label">❄️ Cooling</div>
+                        <div class="value" id="target-cool">--</div>
+                        <div class="temp-control">
+                            <button class="control-btn" onclick="adjustTemp('cool', -1)">−</button>
+                            <button class="control-btn" onclick="adjustTemp('cool', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Card (Full Width) -->
+        <div class="card">
+            <h2>System Controls</h2>
+            
+            <!-- Schedule Status Alert -->
+            <div id="schedule-status" class="schedule-status" style="display:none;"></div>
+            
+            <div class="control-panel">
+                <div class="control-section">
+                    <h3>HVAC Mode</h3>
+                    <div class="mode-buttons">
+                        <button class="mode-btn" data-mode="off" onclick="setMode('off')">OFF</button>
+                        <button class="mode-btn" data-mode="heat" onclick="setMode('heat')">HEAT</button>
+                        <button class="mode-btn" data-mode="cool" onclick="setMode('cool')">COOL</button>
+                        <button class="mode-btn" data-mode="auto" onclick="setMode('auto')">AUTO</button>
+                    </div>
+                </div>
+                <div class="control-section">
+                    <h3>Fan Control</h3>
+                    <div class="fan-control">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="fan-toggle" onchange="setFan(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="fan-label" id="fan-label">OFF</span>
+                    </div>
+                </div>
+                <div class="control-section">
+                    <h3>Schedule Control</h3>
+                    <div class="schedule-buttons">
+                        <button class="schedule-btn" id="resume-btn" onclick="resumeSchedules()" style="display:none;">Resume Schedules</button>
+                        <button class="schedule-btn" id="disable-btn" onclick="disableSchedules()">Disable Schedules</button>
+                        <button class="schedule-btn" id="enable-btn" onclick="enableSchedules()" style="display:none;">Enable Schedules</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sensors Card (Full Width) -->
+        <div class="card">
+            <h2>Temperature Sensors</h2>
+            <ul class="sensor-list" id="sensor-list">
+                <li class="loading">Loading sensor data...</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let errorCount = 0;
+        let currentMode = 'off';
+        let currentTargetHeat = 68;
+        let currentTargetCool = 74;
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            errorCount++;
+            
+            if (errorCount > 5) {
+                errorEl.textContent += ' (Stopped retrying after 5 failures)';
+            }
+        }
+
+        function hideError() {
+            document.getElementById('error-message').style.display = 'none';
+            errorCount = 0;
+        }
+
+        function showSuccess(message) {
+            const successEl = document.createElement('div');
+            successEl.className = 'success-message';
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            
+            const container = document.querySelector('.control-panel');
+            container.parentElement.appendChild(successEl);
+            
+            setTimeout(() => {
+                successEl.style.display = 'none';
+                successEl.remove();
+            }, 3000);
+        }
+
+        async function adjustTemp(type, delta) {
+            const currentTemp = type === 'heat' ? currentTargetHeat : currentTargetCool;
+            const newTemp = currentTemp + delta;
+
+            if (newTemp < 50 || newTemp > 90) {
+                showError('Temperature must be between 50°F and 90°F');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/control/temperature', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({type: type, temperature: newTemp})
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to set temperature');
+                }
+
+                if (type === 'heat') {
+                    currentTargetHeat = newTemp;
+                } else {
+                    currentTargetCool = newTemp;
+                }
+
+                showSuccess(`Target ${type} temperature set to ${newTemp}°F`);
+                updateDashboard();
+            } catch (error) {
+                showError(`Failed to set temperature: ${error.message}`);
+            }
+        }
+
+        async function setMode(mode) {
+            try {
+                const response = await fetch('/api/control/mode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mode: mode})
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to set mode');
+                }
+
+                currentMode = mode;
+                updateModeButtons();
+                showSuccess(`HVAC mode set to ${mode.toUpperCase()}`);
+                updateDashboard();
+            } catch (error) {
+                showError(`Failed to set mode: ${error.message}`);
+            }
+        }
+
+        async function setFan(fanOn) {
+            try {
+                const response = await fetch('/api/control/fan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({fan_on: fanOn})
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to set fan');
+                }
+
+                document.getElementById('fan-label').textContent = fanOn ? 'ON' : 'OFF';
+                showSuccess(`Fan turned ${fanOn ? 'ON' : 'OFF'}`);
+                updateDashboard();
+            } catch (error) {
+                showError(`Failed to set fan: ${error.message}`);
+            }
+        }
+
+        function updateModeButtons() {
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                const mode = btn.getAttribute('data-mode');
+                btn.classList.toggle('active', mode === currentMode);
+            });
+        }
+
+        function updateDashboard() {
+            if (errorCount > 5) return;
+
+            fetch('/api/status')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    hideError();
+
+                    // Update system temperature
+                    const systemTemp = data.system_temp;
+                    document.getElementById('system-temp').textContent = 
+                        systemTemp !== null ? `${systemTemp.toFixed(1)}°F` : '--';
+
+                    // Update HVAC mode
+                    currentMode = (data.hvac_mode || 'off').toLowerCase();
+                    document.getElementById('hvac-mode').textContent = 
+                        currentMode.toUpperCase();
+                    updateModeButtons();
+
+                    // Update HVAC status badges
+                    const hvacState = data.hvac_state || {};
+                    const hvacStatusEl = document.getElementById('hvac-status');
+                    hvacStatusEl.innerHTML = `
+                        <span class="hvac-badge ${hvacState.heat ? 'on' : 'off'}">
+                            🔥 Heat ${hvacState.heat ? 'ON' : 'OFF'}
+                        </span>
+                        <span class="hvac-badge ${hvacState.cool ? 'on' : 'off'}">
+                            ❄️ Cool ${hvacState.cool ? 'ON' : 'OFF'}
+                        </span>
+                        <span class="hvac-badge ${hvacState.fan ? 'on' : 'off'}">
+                            💨 Fan ${hvacState.fan ? 'ON' : 'OFF'}
+                        </span>
+                        ${hvacState.heat2 ? '<span class="hvac-badge on">🔥🔥 Heat2 ON</span>' : ''}
+                    `;
+
+                    // Update target temperatures
+                    currentTargetHeat = data.target_temp_heat || 68;
+                    currentTargetCool = data.target_temp_cool || 74;
+                    document.getElementById('target-heat').textContent = `${currentTargetHeat}°F`;
+                    document.getElementById('target-cool').textContent = `${currentTargetCool}°F`;
+
+                    // Update fan toggle
+                    const fanToggle = document.getElementById('fan-toggle');
+                    fanToggle.checked = hvacState.fan || false;
+                    document.getElementById('fan-label').textContent = 
+                        fanToggle.checked ? 'ON' : 'OFF';
+                    
+                    // Update schedule status
+                    updateScheduleStatus(data);
+
+                    // Update sensors
+                    fanToggle.checked = hvacState.fan || false;
+                    document.getElementById('fan-label').textContent = hvacState.fan ? 'ON' : 'OFF';
+
+                    // Update sensors
+                    updateSensors(data.sensor_readings, data.compromised_sensors);
+
+                    // Update timestamp
+                    const lastUpdate = data.last_update ? 
+                        new Date(data.last_update).toLocaleTimeString() : '--';
+                    document.getElementById('last-update').textContent = lastUpdate;
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    showError('Failed to connect to thermostat. Retrying...');
+                });
+        }
+
+        function updateSensors(readings, compromised) {
+            const sensorList = document.getElementById('sensor-list');
+            
+            if (!readings || readings.length === 0) {
+                sensorList.innerHTML = '<li class="loading">No sensor data available</li>';
+                return;
+            }
+
+            const compromisedSet = new Set(compromised || []);
+
+            sensorList.innerHTML = readings.map(reading => {
+                const isCompromised = compromisedSet.has(reading.id);
+                return `
+                    <li class="sensor-item ${isCompromised ? 'compromised' : ''}">
+                        <span class="sensor-name">
+                            ${reading.name}
+                            ${isCompromised ? '<span class="warning-icon">⚠️</span>' : ''}
+                        </span>
+                        <span class="sensor-temp">${reading.temperature.toFixed(1)}°F</span>
+                    </li>
+                `;
+            }).join('');
+        }
+
+        function updateScheduleStatus(data) {
+            const statusEl = document.getElementById('schedule-status');
+            const resumeBtn = document.getElementById('resume-btn');
+            const disableBtn = document.getElementById('disable-btn');
+            const enableBtn = document.getElementById('enable-btn');
+            
+            // Update schedule control buttons
+            if (!data.schedule_enabled) {
+                statusEl.className = 'schedule-status disabled';
+                statusEl.textContent = '🔕 Schedules are disabled';
+                statusEl.style.display = 'block';
+                resumeBtn.style.display = 'none';
+                disableBtn.style.display = 'none';
+                enableBtn.style.display = 'inline-block';
+            } else if (data.schedule_on_hold) {
+                const holdUntil = new Date(data.schedule_hold_until);
+                const timeLeft = Math.round((holdUntil - new Date()) / 60000); // minutes
+                statusEl.className = 'schedule-status on-hold';
+                statusEl.textContent = `⏸️ Schedules on hold for ${timeLeft} minutes (manual override active)`;
+                statusEl.style.display = 'block';
+                resumeBtn.style.display = 'inline-block';
+                disableBtn.style.display = 'inline-block';
+                enableBtn.style.display = 'none';
+            } else {
+                statusEl.className = 'schedule-status active';
+                statusEl.textContent = '✅ Schedules active';
+                statusEl.style.display = 'block';
+                resumeBtn.style.display = 'none';
+                disableBtn.style.display = 'inline-block';
+                enableBtn.style.display = 'none';
+            }
+        }
+
+        async function resumeSchedules() {
+            try {
+                const response = await fetch('/api/schedules/control', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: 'resume'})
+                });
+                
+                if (!response.ok) throw new Error('Failed to resume schedules');
+                
+                showSuccess('Schedules resumed');
+                updateDashboard();
+            } catch (error) {
+                showError('Failed to resume schedules: ' + error.message);
+            }
+        }
+
+        async function enableSchedules() {
+            try {
+                const response = await fetch('/api/schedules/control', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: 'enable'})
+                });
+                
+                if (!response.ok) throw new Error('Failed to enable schedules');
+                
+                showSuccess('Schedules enabled');
+                updateDashboard();
+            } catch (error) {
+                showError('Failed to enable schedules: ' + error.message);
+            }
+        }
+
+        async function disableSchedules() {
+            if (!confirm('Disable all schedules? You can re-enable them later.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/schedules/control', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: 'disable'})
+                });
+                
+                if (!response.ok) throw new Error('Failed to disable schedules');
+                
+                showSuccess('Schedules disabled');
+                updateDashboard();
+            } catch (error) {
+                showError('Failed to disable schedules: ' + error.message);
+            }
+        }
+
+        // Initial update
+        updateDashboard();
+
+        // Auto-refresh every 5 seconds
+        setInterval(updateDashboard, 5000);
+    </script>
+</body>
+</html>

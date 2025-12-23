@@ -21,19 +21,43 @@ except ImportError:
     GPIO = None
     W1ThermSensor = None
 
+# Try to import web interface (optional)
+try:
+    from web_interface import start_web_interface, update_state
+    WEB_INTERFACE_AVAILABLE = True
+except ImportError:
+    WEB_INTERFACE_AVAILABLE = False
+    print("Warning: Web interface not available (Flask not installed)")
+
+# Import database module
+try:
+    from database import ThermostatDatabase
+    DATABASE_AVAILABLE = True
+except ImportError:
+    DATABASE_AVAILABLE = False
+    print("Warning: Database module not available")
+
 # Load configuration
 load_dotenv('config.env')
 
 # Configure logging
 log_level = os.getenv('LOG_LEVEL', 'INFO')
 log_file = os.getenv('LOG_FILE', '/var/log/thermostat.log')
+
+# Create handlers list
+handlers = [logging.StreamHandler(sys.stdout)]
+
+# Add file handler if directory exists
+log_dir = os.path.dirname(log_file)
+if log_dir and os.path.exists(log_dir):
+    handlers.append(logging.FileHandler(log_file))
+elif not log_dir:  # No directory specified, log to current directory
+    handlers.append(logging.FileHandler(os.path.basename(log_file)))
+
 logging.basicConfig(
     level=getattr(logging, log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 
@@ -52,7 +76,15 @@ class ThermostatController:
     """Main thermostat control logic"""
     
     def __init__(self):
-        # Load configuration
+        # Initialize database
+        self.db = None
+        if DATABASE_AVAILABLE:
+            db_path = os.getenv('DATABASE_PATH', 'thermostat.db')
+            if db_path:  # Only create database if path is set
+                self.db = ThermostatDatabase(db_path)
+                logger.info(f"Database initialized: {db_path}")
+        
+        # Load configuration from environment (defaults)
         self.target_temp_heat = float(os.getenv('TARGET_TEMP_HEAT', 68.0))
         self.target_temp_cool = float(os.getenv('TARGET_TEMP_COOL', 74.0))
         self.hysteresis = float(os.getenv('HYSTERESIS', 0.5))
@@ -63,6 +95,17 @@ class ThermostatController:
         self.hvac_min_run_time = int(os.getenv('HVAC_MIN_RUN_TIME', 300))
         self.hvac_min_rest_time = int(os.getenv('HVAC_MIN_REST_TIME', 300))
         self.hvac_mode = os.getenv('HVAC_MODE', 'heat')
+        self.history_log_interval = int(os.getenv('HISTORY_LOG_INTERVAL', 300))  # 5 minutes
+        
+        # Load persisted settings from database (overrides env)
+        if self.db:
+            saved_settings = self.db.load_settings()
+            if saved_settings:
+                self.target_temp_heat = saved_settings['target_temp_heat']
+                self.target_temp_cool = saved_settings['target_temp_cool']
+                self.hvac_mode = saved_settings['hvac_mode']
+                logger.info(f"Loaded persisted settings: heat={self.target_temp_heat}°F, "
+                          f"cool={self.target_temp_cool}°F, mode={self.hvac_mode}")
         
         # GPIO configuration
         self.gpio_relay_heat = int(os.getenv('GPIO_RELAY_HEAT', 17))
@@ -80,6 +123,26 @@ class ThermostatController:
         self.hvac_state = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
         self.last_hvac_change = datetime.now()
         self.last_sensor_read = datetime.now() - timedelta(seconds=self.sensor_read_interval)
+        self.last_history_log = datetime.now()
+        self.last_schedule_check = datetime.now()
+        self.latest_readings: List[SensorReading] = []
+        self.latest_system_temp: Optional[float] = None
+        
+        # Schedule control
+        self.schedule_enabled = os.getenv('SCHEDULE_ENABLED', 'true').lower() == 'true'
+        self.schedule_hold_until: Optional[datetime] = None  # Hold manual changes until this time
+        self.schedule_hold_hours = int(os.getenv('SCHEDULE_HOLD_HOURS', '2'))  # Default 2 hours
+        
+        # Initialize web interface if enabled
+        self.web_enabled = os.getenv('WEB_INTERFACE_ENABLED', 'true').lower() == 'true'
+        if self.web_enabled and WEB_INTERFACE_AVAILABLE:
+            from web_interface import set_control_callback, set_database
+            web_port = int(os.getenv('WEB_PORT', 5000))
+            start_web_interface(port=web_port)
+            set_control_callback(self.handle_control_command)
+            if self.db:
+                set_database(self.db)
+            logger.info(f"Web interface started on port {web_port}")
         
         # Initialize GPIO
         if GPIO:
@@ -291,14 +354,40 @@ class ThermostatController:
     
     def get_status(self) -> Dict:
         """Get current system status"""
-        return {
+        status = {
             'hvac_mode': self.hvac_mode,
             'hvac_state': self.hvac_state.copy(),
             'target_temp_heat': self.target_temp_heat,
             'target_temp_cool': self.target_temp_cool,
             'compromised_sensors': list(self.compromised_sensors.keys()),
-            'sensor_count': len(self.sensor_map)
+            'sensor_count': len(self.sensor_map),
+            'system_temp': self.latest_system_temp,
+            'schedule_enabled': self.schedule_enabled,
+            'schedule_on_hold': self.schedule_hold_until is not None,
+            'sensor_readings': [
+                {
+                    'id': r.sensor_id,
+                    'name': r.name,
+                    'temperature': r.temperature,
+                    'timestamp': r.timestamp.isoformat()
+                }
+                for r in self.latest_readings
+            ]
         }
+        
+        # Add hold expiration time if active
+        if self.schedule_hold_until:
+            status['schedule_hold_until'] = self.schedule_hold_until.isoformat()
+        
+        return status
+    
+    def _update_web_interface(self) -> None:
+        """Update web interface with current state"""
+        if self.web_enabled and WEB_INTERFACE_AVAILABLE:
+            try:
+                update_state(self.get_status())
+            except Exception as e:
+                logger.debug(f"Web interface update failed: {e}")
     
     def run(self) -> None:
         """Main control loop"""
@@ -306,8 +395,15 @@ class ThermostatController:
         
         try:
             while True:
+                now = datetime.now()
+                
+                # Check schedules (every minute)
+                if (now - self.last_schedule_check).total_seconds() >= 60:
+                    self._check_schedules(now)
+                    self.last_schedule_check = now
+                
                 # Read sensors
-                if (datetime.now() - self.last_sensor_read).total_seconds() >= self.sensor_read_interval:
+                if (now - self.last_sensor_read).total_seconds() >= self.sensor_read_interval:
                     readings = self.read_sensors()
                     
                     if readings:
@@ -318,9 +414,22 @@ class ThermostatController:
                         # Calculate system temperature
                         system_temp = self.calculate_system_temperature(readings)
                         
+                        # Store latest readings for web interface
+                        self.latest_readings = readings
+                        self.latest_system_temp = system_temp
+                        
                         # Control HVAC
                         if system_temp is not None:
                             self.control_hvac(system_temp)
+                        
+                        # Log sensor readings to database
+                        if self.db and (now - self.last_history_log).total_seconds() >= self.history_log_interval:
+                            self._log_sensor_history(readings)
+                            self._log_hvac_history(system_temp)
+                            self.last_history_log = now
+                        
+                        # Update web interface
+                        self._update_web_interface()
                         
                         # Log status
                         status = self.get_status()
@@ -328,7 +437,7 @@ class ThermostatController:
                                    f"HVAC: {status['hvac_state']}, "
                                    f"Compromised sensors: {len(status['compromised_sensors'])}")
                     
-                    self.last_sensor_read = datetime.now()
+                    self.last_sensor_read = now
                 
                 # Sleep to prevent CPU spinning
                 time.sleep(1)
@@ -349,6 +458,215 @@ class ThermostatController:
             GPIO.output(self.gpio_relay_heat2, GPIO.LOW)
             GPIO.cleanup()
         logger.info("Cleanup complete")
+    
+    def _check_schedules(self, current_time: datetime) -> None:
+        """Check and apply active schedules"""
+        if not self.db:
+            return
+        
+        # Check if schedules are globally disabled
+        if not self.schedule_enabled:
+            return
+        
+        # Check if there's an active manual hold
+        if self.schedule_hold_until and current_time < self.schedule_hold_until:
+            logger.debug(f"Schedules on hold until {self.schedule_hold_until}")
+            return
+        
+        # Clear expired hold
+        if self.schedule_hold_until and current_time >= self.schedule_hold_until:
+            logger.info("Schedule hold expired, resuming automatic schedules")
+            self.schedule_hold_until = None
+        
+        active_schedules = self.db.get_active_schedules(current_time)
+        
+        for schedule in active_schedules:
+            logger.info(f"Applying schedule: {schedule['name']}")
+            
+            # Apply temperature changes
+            if schedule['target_temp_heat'] is not None:
+                old_temp = self.target_temp_heat
+                self.target_temp_heat = schedule['target_temp_heat']
+                self.db.log_setting_change('target_temp_heat', str(old_temp), 
+                                          str(self.target_temp_heat), f"schedule:{schedule['name']}")
+            
+            if schedule['target_temp_cool'] is not None:
+                old_temp = self.target_temp_cool
+                self.target_temp_cool = schedule['target_temp_cool']
+                self.db.log_setting_change('target_temp_cool', str(old_temp), 
+                                          str(self.target_temp_cool), f"schedule:{schedule['name']}")
+            
+            # Apply mode change
+            if schedule['hvac_mode'] is not None:
+                old_mode = self.hvac_mode
+                self.hvac_mode = schedule['hvac_mode']
+                self.db.log_setting_change('hvac_mode', old_mode, 
+                                          self.hvac_mode, f"schedule:{schedule['name']}")
+            
+            # Persist changes
+            self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+            
+            logger.info(f"Schedule applied: heat={self.target_temp_heat}°F, "
+                       f"cool={self.target_temp_cool}°F, mode={self.hvac_mode}")
+    
+    def _log_sensor_history(self, readings: List[SensorReading]) -> None:
+        """Log sensor readings to database"""
+        if not self.db:
+            return
+        
+        batch_data = [
+            (r.sensor_id, r.name, r.temperature, r.is_compromised)
+            for r in readings
+        ]
+        self.db.log_sensor_readings_batch(batch_data)
+        logger.debug(f"Logged {len(readings)} sensor readings to history")
+    
+    def _log_hvac_history(self, system_temp: Optional[float]) -> None:
+        """Log HVAC state to database"""
+        if not self.db:
+            return
+        
+        target_temp = None
+        if self.hvac_mode == 'heat':
+            target_temp = self.target_temp_heat
+        elif self.hvac_mode == 'cool':
+            target_temp = self.target_temp_cool
+        
+        self.db.log_hvac_state(
+            system_temp=system_temp,
+            target_temp=target_temp,
+            hvac_mode=self.hvac_mode,
+            heat=self.hvac_state['heat'],
+            cool=self.hvac_state['cool'],
+            fan=self.hvac_state['fan'],
+            heat2=self.hvac_state['heat2']
+        )
+    
+    def handle_control_command(self, command: str, params: Dict) -> Dict:
+        """Handle control commands from web interface
+        
+        Args:
+            command: Command type ('set_temperature', 'set_mode', 'set_fan')
+            params: Command parameters
+            
+        Returns:
+            Dict with result status
+        """
+        logger.info(f"Control command received: {command} with params {params}")
+        
+        try:
+            if command == 'set_temperature':
+                temp_type = params.get('type')
+                temperature = params.get('temperature')
+                
+                # Validate temperature range
+                if temperature < 50 or temperature > 90:
+                    logger.warning(f"Temperature {temperature}°F out of range")
+                    return {'success': False, 'error': 'Temperature out of range (50-90°F)'}
+                
+                if temp_type == 'heat':
+                    old_temp = self.target_temp_heat
+                    self.target_temp_heat = temperature
+                    logger.info(f"Target heat temperature set to {temperature}°F")
+                    
+                    # Persist to database and log change
+                    if self.db:
+                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                        self.db.log_setting_change('target_temp_heat', str(old_temp), str(temperature), 'web_interface')
+                    
+                    # Set schedule hold
+                    self._set_schedule_hold()
+                
+                elif temp_type == 'cool':
+                    old_temp = self.target_temp_cool
+                    self.target_temp_cool = temperature
+                    logger.info(f"Target cool temperature set to {temperature}°F")
+                    
+                    # Persist to database and log change
+                    if self.db:
+                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                        self.db.log_setting_change('target_temp_cool', str(old_temp), str(temperature), 'web_interface')
+                    
+                    # Set schedule hold
+                    self._set_schedule_hold()
+                
+                else:
+                    return {'success': False, 'error': 'Invalid temperature type'}
+                
+                return {'success': True, 'message': f'Target {temp_type} temperature set to {temperature}°F'}
+            
+            elif command == 'set_mode':
+                mode = params.get('mode')
+                
+                # Validate mode
+                if mode not in ['heat', 'cool', 'auto', 'off']:
+                    logger.warning(f"Invalid mode: {mode}")
+                    return {'success': False, 'error': 'Invalid mode'}
+                
+                old_mode = self.hvac_mode
+                self.hvac_mode = mode
+                logger.info(f"HVAC mode set to {mode}")
+                
+                # Persist to database and log change
+                if self.db:
+                    self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                    self.db.log_setting_change('hvac_mode', old_mode, mode, 'web_interface')
+                
+                # Set schedule hold
+                self._set_schedule_hold()
+                
+                # If mode is 'off', turn off all HVAC
+                if mode == 'off':
+                    self._set_hvac_state(heat=False, cool=False, fan=False)
+                
+                return {'success': True, 'message': f'HVAC mode set to {mode}'}
+            
+            elif command == 'set_fan':
+                fan_on = params.get('fan_on', False)
+                
+                # Manual fan control
+                if GPIO:
+                    GPIO.output(self.gpio_relay_fan, GPIO.HIGH if fan_on else GPIO.LOW)
+                
+                self.hvac_state['fan'] = fan_on
+                logger.info(f"Fan manually set to {'ON' if fan_on else 'OFF'}")
+                
+                return {'success': True, 'message': f"Fan turned {'ON' if fan_on else 'OFF'}"}
+            
+            elif command == 'resume_schedules':
+                return self.resume_schedules()
+            
+            elif command == 'set_schedule_enabled':
+                enabled = params.get('enabled', True)
+                return self.set_schedule_enabled(enabled)
+            
+            else:
+                logger.warning(f"Unknown command: {command}")
+                return {'success': False, 'error': 'Unknown command'}
+        
+        except Exception as e:
+            logger.error(f"Error handling control command: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _set_schedule_hold(self) -> None:
+        """Set a temporary hold on schedules after manual changes"""
+        if self.schedule_hold_hours > 0:
+            self.schedule_hold_until = datetime.now() + timedelta(hours=self.schedule_hold_hours)
+            logger.info(f"Schedule hold activated until {self.schedule_hold_until}")
+    
+    def resume_schedules(self) -> Dict:
+        """Clear schedule hold and resume automatic scheduling"""
+        self.schedule_hold_until = None
+        logger.info("Schedule hold cleared, automatic scheduling resumed")
+        return {'success': True, 'message': 'Schedules resumed'}
+    
+    def set_schedule_enabled(self, enabled: bool) -> Dict:
+        """Enable or disable schedule system globally"""
+        self.schedule_enabled = enabled
+        if not enabled:
+            self.schedule_hold_until = None  # Clear hold when disabling
+        logger.info(f"Schedules globally {'enabled' if enabled else 'disabled'}")
+        return {'success': True, 'message': f"Schedules {'enabled' if enabled else 'disabled'}"}
 
 
 def main():

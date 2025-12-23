@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermostat History</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav a:hover, .nav a.active {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filters select {
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #edf2f7;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tr:hover {
+            background: #f7fafc;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .badge-on {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-off {
+            background: #e2e8f0;
+            color: #718096;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            padding: 20px;
+            background: #edf2f7;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        @media (max-width: 768px) {
+            .filters {
+                flex-direction: column;
+            }
+
+            th, td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 System History</h1>
+        </div>
+
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/schedules">Schedules</a>
+            <a href="/history" class="active">History</a>
+        </div>
+
+        <!-- Database Stats -->
+        <div class="card">
+            <h2>Database Statistics</h2>
+            <div class="stats-grid" id="stats-grid">
+                <div class="loading">Loading stats...</div>
+            </div>
+        </div>
+
+        <!-- Setting Changes -->
+        <div class="card">
+            <h2>Recent Setting Changes</h2>
+            <div class="filters">
+                <select id="settings-limit" onchange="loadSettingHistory()">
+                    <option value="50">Last 50</option>
+                    <option value="100" selected>Last 100</option>
+                    <option value="500">Last 500</option>
+                </select>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Setting</th>
+                            <th>Old Value</th>
+                            <th>New Value</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settings-history">
+                        <tr><td colspan="5" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- HVAC History -->
+        <div class="card">
+            <h2>HVAC Activity Log</h2>
+            <div class="filters">
+                <select id="hvac-hours" onchange="loadHvacHistory()">
+                    <option value="6">Last 6 hours</option>
+                    <option value="12">Last 12 hours</option>
+                    <option value="24" selected>Last 24 hours</option>
+                    <option value="72">Last 3 days</option>
+                </select>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>System Temp</th>
+                            <th>Target Temp</th>
+                            <th>Mode</th>
+                            <th>Heat</th>
+                            <th>Cool</th>
+                            <th>Fan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hvac-history">
+                        <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sensor History -->
+        <div class="card">
+            <h2>Sensor Reading History</h2>
+            <div class="filters">
+                <select id="sensor-hours" onchange="loadSensorHistory()">
+                    <option value="6">Last 6 hours</option>
+                    <option value="12">Last 12 hours</option>
+                    <option value="24" selected>Last 24 hours</option>
+                    <option value="72">Last 3 days</option>
+                </select>
+                <span style="color: #718096;">Showing latest 100 readings per sensor</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Sensor</th>
+                            <th>Temperature</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sensor-history">
+                        <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatDateTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        async function loadDatabaseStats() {
+            try {
+                const response = await fetch('/api/database/stats');
+                const stats = await response.json();
+                
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `
+                    <div class="stat-box">
+                        <div class="stat-value">${stats.sensor_history_count || 0}</div>
+                        <div class="stat-label">Sensor Readings</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${stats.hvac_history_count || 0}</div>
+                        <div class="stat-label">HVAC Records</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${stats.setting_history_count || 0}</div>
+                        <div class="stat-label">Setting Changes</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${stats.schedules_count || 0}</div>
+                        <div class="stat-label">Schedules</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">${(stats.db_size_mb || 0).toFixed(2)} MB</div>
+                        <div class="stat-label">Database Size</div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        async function loadSettingHistory() {
+            const limit = document.getElementById('settings-limit').value;
+            
+            try {
+                const response = await fetch(`/api/history/settings?limit=${limit}`);
+                const data = await response.json();
+                const history = data.history || [];
+                
+                const tbody = document.getElementById('settings-history');
+                
+                if (history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #718096;">No setting changes recorded</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = history.map(record => `
+                    <tr>
+                        <td>${formatDateTime(record.timestamp)}</td>
+                        <td><strong>${record.setting_name}</strong></td>
+                        <td>${record.old_value || '-'}</td>
+                        <td>${record.new_value}</td>
+                        <td><em>${record.source}</em></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load setting history:', error);
+            }
+        }
+
+        async function loadHvacHistory() {
+            const hours = document.getElementById('hvac-hours').value;
+            
+            try {
+                const response = await fetch(`/api/history/hvac?hours=${hours}&limit=100`);
+                const data = await response.json();
+                const history = data.history || [];
+                
+                const tbody = document.getElementById('hvac-history');
+                
+                if (history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No HVAC history</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = history.map(record => `
+                    <tr>
+                        <td>${formatDateTime(record.timestamp)}</td>
+                        <td>${record.system_temp ? record.system_temp.toFixed(1) + '°F' : '-'}</td>
+                        <td>${record.target_temp ? record.target_temp.toFixed(1) + '°F' : '-'}</td>
+                        <td><strong>${(record.hvac_mode || 'off').toUpperCase()}</strong></td>
+                        <td><span class="badge ${record.heat_active ? 'badge-on' : 'badge-off'}">${record.heat_active ? 'ON' : 'OFF'}</span></td>
+                        <td><span class="badge ${record.cool_active ? 'badge-on' : 'badge-off'}">${record.cool_active ? 'ON' : 'OFF'}</span></td>
+                        <td><span class="badge ${record.fan_active ? 'badge-on' : 'badge-off'}">${record.fan_active ? 'ON' : 'OFF'}</span></td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load HVAC history:', error);
+            }
+        }
+
+        async function loadSensorHistory() {
+            const hours = document.getElementById('sensor-hours').value;
+            
+            try {
+                const response = await fetch(`/api/history/sensors?hours=${hours}&limit=100`);
+                const data = await response.json();
+                const history = data.history || [];
+                
+                const tbody = document.getElementById('sensor-history');
+                
+                if (history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096;">No sensor history</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = history.map(record => `
+                    <tr>
+                        <td>${formatDateTime(record.timestamp)}</td>
+                        <td><strong>${record.sensor_name}</strong></td>
+                        <td>${record.temperature.toFixed(1)}°F</td>
+                        <td>${record.is_compromised ? '<span class="badge" style="background:#fed7d7;color:#c53030;">Compromised</span>' : '<span class="badge badge-on">Normal</span>'}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load sensor history:', error);
+            }
+        }
+
+        // Load all data on page load
+        loadDatabaseStats();
+        loadSettingHistory();
+        loadHvacHistory();
+        loadSensorHistory();
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadDatabaseStats();
+            loadSettingHistory();
+            loadHvacHistory();
+            loadSensorHistory();
+        }, 30000);
+    </script>
+</body>
+</html>

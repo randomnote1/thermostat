@@ -8,8 +8,9 @@ This thermostat system allows you to:
 - Monitor temperature across multiple rooms
 - Intelligently ignore sensors near active heat sources (fireplace)
 - Control standard HVAC systems (heating, cooling, secondary heat stage)
+- **Control remotely via web interface** (adjust temps, switch modes, control fan)
+- Display information on an e-ink screen (optional)
 - Operate completely offline
-- Display information on an e-ink screen
 
 ## Table of Contents
 
@@ -17,10 +18,11 @@ This thermostat system allows you to:
 2. [System Architecture](#system-architecture)
 3. [Software Stack](#software-stack)
 4. [Installation Guide](#installation-guide)
-5. [Wiring Diagrams](#wiring-diagrams)
-6. [Configuration](#configuration)
-7. [Safety Considerations](#safety-considerations)
-8. [Troubleshooting](#troubleshooting)
+5. [Testing](#testing)
+6. [Wiring Diagrams](#wiring-diagrams)
+7. [Configuration](#configuration)
+8. [Safety Considerations](#safety-considerations)
+9. [Troubleshooting](#troubleshooting)
 
 ## Hardware Components
 
@@ -307,6 +309,40 @@ sudo systemctl status thermostat.service
 sudo journalctl -u thermostat.service -f
 ```
 
+## Testing
+
+### Unit Tests (Development Machine)
+
+Run comprehensive unit tests on any machine without hardware:
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run all tests
+pytest tests/unit/ -v
+
+# Run with coverage report
+pytest tests/unit/ --cov=src --cov-report=html
+```
+
+See [docs/TESTING.md](docs/TESTING.md) for detailed testing guide.
+
+### Hardware Integration Tests (Raspberry Pi)
+
+After deploying to Raspberry Pi, test hardware components:
+
+```bash
+# Test temperature sensors
+python3 tests/test_sensors.py
+
+# Test relays
+python3 tests/test_relays.py
+
+# Test e-ink display
+python3 tests/test_display.py
+```
+
 ## Wiring Diagrams
 
 ### DS18B20 Temperature Sensors (1-Wire)
@@ -574,6 +610,16 @@ sudo journalctl -u thermostat.service -n 100
 
 ## Additional Resources
 
+### Documentation Files
+- [docs/INSTALL.md](docs/INSTALL.md) - Complete installation guide
+- [docs/PARTS_LIST.md](docs/PARTS_LIST.md) - Detailed parts list with links
+- [docs/SENSOR_MOUNTING.md](docs/SENSOR_MOUNTING.md) - Sensor installation guide
+- [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md) - Web dashboard setup and usage
+- [docs/CONTROL_FEATURES.md](docs/CONTROL_FEATURES.md) - **Remote control guide**
+- [docs/TESTING.md](docs/TESTING.md) - Testing procedures
+- [docs/STRUCTURE.md](docs/STRUCTURE.md) - Project structure reference
+
+### Hardware References
 - [Raspberry Pi GPIO Pinout](https://pinout.xyz/)
 - [DS18B20 Datasheet](https://datasheets.maximintegrated.com/en/ds/DS18B20.pdf)
 - [Waveshare E-Ink Documentation](https://www.waveshare.com/wiki/2.13inch_e-Paper_HAT)

@@ -24,13 +24,19 @@ thermostat/
 │   └── thermostat.service         # Systemd service configuration
 │
 ├── tests/
-│   ├── test_sensors.py            # DS18B20 sensor testing
-│   ├── test_relays.py             # Relay board testing
-│   └── test_display.py            # E-ink display testing
+│   ├── __init__.py
+│   ├── unit/                       # Unit tests (no hardware)
+│   │   ├── __init__.py
+│   │   ├── test_thermostat_unit.py
+│   │   └── test_display_unit.py
+│   ├── test_sensors.py            # Hardware: DS18B20 sensor testing
+│   ├── test_relays.py             # Hardware: Relay board testing
+│   └── test_display.py            # Hardware: E-ink display testing
 │
 ├── .gitignore                      # Git ignore rules
 ├── README.md                       # Project overview and quick start
 ├── requirements.txt                # Python dependencies
+├── pytest.ini                      # Pytest configuration
 └── STRUCTURE.md                    # This file
 
 ```
@@ -43,10 +49,20 @@ Main application code that runs as the thermostat system.
 - **display.py**: E-ink display rendering and updates
 
 ### `/tests`
-Hardware validation scripts for testing individual components before full integration.
-- Run these interactively during installation
-- Safe for repeated execution
-- Provide troubleshooting diagnostics
+Hardware validation scripts and unit tests.
+
+**Unit tests** (tests/unit/):
+- Run on any development machine
+- No hardware dependencies (mocked)
+- Fast execution
+- Test core logic in isolation
+- Run with: `pytest tests/unit/`
+
+**Integration tests**:
+- Run on Raspberry Pi only
+- Test actual hardware
+- Verify physical connections
+- Interactive troubleshooting
 
 ### `/config`
 Configuration files (not committed to git).
@@ -63,6 +79,8 @@ Comprehensive documentation:
 - **PARTS_LIST.md**: Complete shopping list with Amazon/DigiKey part numbers
 - **SENSOR_MOUNTING.md**: Detailed wiring and mounting instructions
 - **VSCODE_EXTENSIONS.md**: Recommended development environment setup
+- **TESTING.md**: Unit testing guide and best practices
+- **TESTING_WINDOWS.md**: Windows-specific testing instructions
 
 ### `/.github`
 GitHub-specific files including Copilot instructions for AI-assisted development.
@@ -98,29 +116,41 @@ Excludes from git:
 2. **Set up Python environment**
    ```bash
    python3 -m venv venv
-   source venv/bin/activate
+   source venv/bin/activate  # Linux/Mac
+   # or
+   venv\Scripts\activate     # Windows
    pip install -r requirements.txt
    ```
 
-3. **Configure**
+3. **Run unit tests (development machine)**
+   ```bash
+   pytest tests/unit/ -v
+   ```
+
+4. **Configure**
    ```bash
    cp config/config.example.env config.env
    nano config.env
    ```
 
-4. **Test hardware**
+5. **Deploy to Raspberry Pi**
+   ```bash
+   scp -r . pi@raspberrypi:/home/pi/thermostat
+   ```
+
+6. **Test hardware (on Raspberry Pi)**
    ```bash
    python3 tests/test_sensors.py
    python3 tests/test_relays.py
    python3 tests/test_display.py
    ```
 
-5. **Run application**
+7. **Run application**
    ```bash
    python3 src/thermostat.py
    ```
 
-6. **Install service**
+8. **Install service**
    ```bash
    sudo cp systemd/thermostat.service /etc/systemd/system/
    sudo systemctl enable thermostat.service

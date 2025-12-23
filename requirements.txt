@@ -4,3 +4,10 @@ Pillow==10.1.0
 python-dotenv==1.0.0
 gpiozero==2.0.1
 spidev==3.6
+
+# Web interface (optional)
+Flask==3.0.0
+
+# Testing dependencies
+pytest==7.4.3
+pytest-cov==4.1.0
