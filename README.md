@@ -167,147 +167,33 @@ This thermostat system allows you to:
 
 ## Installation Guide
 
-### Step 1: Prepare the Raspberry Pi
+**See [docs/INSTALL.md](docs/INSTALL.md) for complete step-by-step installation instructions.**
 
-1. **Download Raspberry Pi OS Lite**
-   ```
-   https://www.raspberrypi.com/software/operating-systems/
-   ```
-
-2. **Flash to MicroSD Card**
-   - Use Raspberry Pi Imager: https://www.raspberrypi.com/software/
-   - Choose "Raspberry Pi OS Lite (64-bit)"
-   - Configure settings (hostname: thermostat, enable SSH, set password)
-   - Disable WiFi in advanced settings
-
-3. **First Boot Setup**
-   ```bash
-   # Connect via Ethernet and SSH
-   ssh pi@thermostat.local
-   
-   # Update system
-   sudo apt update && sudo apt upgrade -y
-   
-   # Set timezone
-   sudo timedatectl set-timezone America/New_York  # Change to your timezone
-   
-   # Disable WiFi permanently
-   sudo rfkill block wifi
-   echo "dtoverlay=disable-wifi" | sudo tee -a /boot/config.txt
-   ```
-
-### Step 2: Enable Required Interfaces
+### Quick Start
 
 ```bash
-# Enable 1-Wire (for DS18B20 sensors)
-sudo raspi-config
-# Navigate to: Interface Options → 1-Wire → Enable
-
-# Enable SPI (for e-ink display)
-sudo raspi-config
-# Navigate to: Interface Options → SPI → Enable
-
-# Or edit directly:
-echo "dtoverlay=w1-gpio,gpiopin=4" | sudo tee -a /boot/config.txt
-echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
-
-# Reboot
-sudo reboot
-```
-
-### Step 3: Install System Dependencies
-
-```bash
-# Install Python and development tools
-sudo apt install -y python3 python3-pip python3-dev python3-venv
-sudo apt install -y python3-pil python3-numpy
-sudo apt install -y git
-
-# Install GPIO libraries
-sudo apt install -y python3-rpi.gpio python3-gpiozero
-
-# Install SPI libraries for display
-sudo apt install -y python3-spidev
-```
-
-### Step 4: Set Up Project Directory
-
-```bash
-# Create project directory
-cd ~
-mkdir thermostat
-cd thermostat
-
-# Create Python virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install Python packages
-pip install --upgrade pip
-pip install w1thermsensor
-pip install RPi.GPIO
-pip install Pillow
-pip install python-dotenv
-pip install waveshare-epaper  # For e-ink display
-```
-
-### Step 5: Clone/Copy This Repository
-
-```bash
-# If you're using git:
-git clone <your-repo-url> ~/thermostat
+# Clone repository
+git clone https://github.com/randomnote1/thermostat.git ~/thermostat
 cd ~/thermostat
 
-# Install dependencies
+# Set up Python environment
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
 
-### Step 6: Configure the System
-
-```bash
-# Copy example configuration
+# Configure
 cp config/config.example.env config.env
+nano config.env  # Edit with your settings
 
-# Edit configuration
-nano config.env
-```
-
-See [Configuration](#configuration) section for details.
-
-### Step 7: Test Components
-
-```bash
-# Test temperature sensors
+# Test hardware
 python3 tests/test_sensors.py
-
-# Test relays
 python3 tests/test_relays.py
 
-# Test e-ink display
-python3 tests/test_display.py
+# Run thermostat
+python3 src/thermostat.py
 ```
 
-### Step 8: Set Up Auto-Start
-
-```bash
-# Install systemd service
-sudo cp systemd/thermostat.service /etc/systemd/system/
-```
-
-Then:
-
-```bash
-# Enable and start service
-sudo systemctl enable thermostat.service
-sudo systemctl start thermostat.service
-
-# Check status
-sudo systemctl status thermostat.service
-
-# View logs
-sudo journalctl -u thermostat.service -f
-```
+For detailed hardware setup, OS configuration, wiring diagrams, and systemd service installation, see the **[complete installation guide](docs/INSTALL.md)**.
 
 ## Testing
 
