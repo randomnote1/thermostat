@@ -156,12 +156,217 @@ When looking at the sensor with the **flat side facing you**, the three pins fro
 - **Pin 2 (Middle)**: DATA (1-Wire signal) → **YELLOW wire**  
 - **Pin 3 (Right)**: VDD (Power, 3.3V) → **RED wire**
 
+**Raspberry Pi GPIO Pin Layout:**
+
+```
+    Raspberry Pi 40-Pin Header (view from top, SD card on right):
+    
+    3.3V (Pin 1)  ●────────● (Pin 2)  5V        ← Row closest to board edge
+       ↓ RED here
+    GPIO 2        ●────────● (Pin 4)  5V
+    GPIO 3        ●────────● (Pin 6)  GND
+                              ↑ BLACK here
+    GPIO 4        ●────────● (Pin 8)  GPIO 14
+  ↑ Pin 7                            
+  YELLOW here                        
+                            
+    GND           ●────────● (Pin 10) GPIO 15
+    GPIO 17       ●────────● (Pin 12) GPIO 18
+    ...continuing down to pin 40
+```
+
 1. **Prepare sensors:**
    - Connect 4.7kΩ pull-up resistor between 3.3V (red wire) and GPIO 4 (yellow DATA wire) - one resistor for entire bus
    - Wire all sensors in parallel:
      - All RED wires (Pin 3/VDD) → 3.3V (Pi GPIO Pin 1)
      - All BLACK wires (Pin 1/GND) → Ground (Pi GPIO Pin 6, 9, 14, 20, 25, 30, 34, or 39)
      - All YELLOW wires (Pin 2/DATA) → GPIO 4 (Pi GPIO Pin 7)
+
+**Connection Methods:**
+
+**Option A: Direct GPIO Header Connection (Simple)**
+- Use female-to-female jumper wires or crimp connectors
+- Plug directly onto GPIO pins 1, 6, and 7
+- Less secure, may need hot glue to prevent disconnection
+
+**Option B: Screw Terminal Board (RECOMMENDED - 52Pi EP-0129)**
+
+**ASCII Diagram - Side View:**
+
+```
+    Viewing from the side (cross-section):
+    
+    ╔═══════════════════════════════════════════╗
+    ║    Raspberry Pi 40-pin GPIO header       ║  ← Pi's male pins point UP
+    ║         (male pins sticking up)          ║
+    ╚═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═════════╝
+        │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 ...     ← Pin numbers
+        ↓   ↓   ↓   ↓   ↓   ↓   ↓   ↓
+    ╔═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═════════╗
+    ║ 40-pin female header (on bottom of HAT) ║  ← Screw terminal board
+    ╠═════════════════════════════════════════╣    plugs onto these pins
+    ║                                         ║
+    ║  [●●●●●] ← LED indicators               ║
+    ║                                         ║
+    ║  SCREW TERMINAL BOARD (52Pi EP-0129)    ║
+    ║                                         ║
+    ║  Terminals face OUTWARD (toward you):  ║
+    ║                                         ║
+    ║  ┌──┬──┬──┬──┬──┬──┬──┬──┐            ║
+    ║  │ 1│ 2│ 3│ 4│ 5│ 6│ 7│ 8│            ║
+    ║  └──┴──┴──┴──┴──┴──┴──┴──┘            ║
+    ║   ▲     ▲                 ▲     ▲      ║
+    ║   │     │                 │     │      ║
+    ║  3V3   5V               GND   GP4      ║
+    ╚═════════════════════════════════════════╝
+         │                       │     │
+         │                       │     └─ YELLOW wires (data)
+         │                       └─ BLACK wires (ground)
+         └─ RED wires (power) + one resistor leg
+                                      
+    4.7kΩ resistor: Terminal 1 (3V3) ←→ Terminal 7 (GP4)
+```
+
+**Top-Down View (looking down at board as you see it):**
+
+```
+    Board shown from above (terminals facing you):
+    
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║                                                PWR ◄─┐ GPIO      ║
+    ║  SCREW TERMINAL HAT                                USB  STATUS   ║
+    ║                                                                  ║
+    ║  Row 1 (Pins 1-10)                                               ║
+    ║  ╔════╦════╦════╦════╦════╦════╦════╦════╦════╦════╗             ║
+    ║  ║+3V3║GND ║IO17║IO18║MOSI║MISO║SCLK║ CE0║ CE1║GND ║    [●]      ║
+    ║  ╠════╬════╬════╬════╬════╬════╬════╬════╬════╬════╣    [●]      ║
+    ║  ║  1 ║  2 ║  3 ║  4 ║  5 ║  6 ║  7 ║  8 ║  9 ║ 10 ║    [●]      ║
+    ║  ╚════╩════╩════╩════╩════╩════╩════╩════╩════╩════╝    [●]      ║
+    ║    ▲                                                    [●]  L   ║
+    ║    └─ RED wires + resistor leg (3.3V power)             [●]  E   ║
+    ║                                                         [●]  D   ║
+    ║  Row 2 (Pins 11-20)                                     [●]      ║
+    ║  ╔════╦════╦════╦════╦════╦════╦════╦════╦════╦════╗    [●]  S   ║
+    ║  ║+3V3║GND ║ TXD║ RXD║IO24║IO25║ IO5║ IO6║IO16║GND ║    [●]  T   ║
+    ║  ╠════╬════╬════╬════╬════╬════╬════╬════╬════╬════╣    [●]  A   ║
+    ║  ║ 11 ║ 12 ║ 13 ║ 14 ║ 15 ║ 16 ║ 17 ║ 18 ║ 19 ║ 20 ║    [●]  T   ║
+    ║  ╚════╩════╩════╩════╩════╩════╩════╩════╩════╩════╝    [●]  U   ║
+    ║         ▲                                               [●]  S   ║
+    ║         └─ Alternative GND (BLACK wires)                [●]      ║
+    ║                                                         [●]  I   ║
+    ║                                                         [●]  N   ║
+    ║  Row 3 (Pins 21-30)                                     [●]  D   ║
+    ║  ╔════╦════╦════╦════╦════╦════╦════╦════╦════╦════╗    [●]  I   ║
+    ║  ║ +5V║GND ║IO23║IO22║IO5D║ID5C║IO12║IO20║IO19║GND ║    [●]  C   ║
+    ║  ╠════╬════╬════╬════╬════╬════╬════╬════╬════╬════╣    [●]  A   ║
+    ║  ║ 21 ║ 22 ║ 23 ║ 24 ║ 25 ║ 26 ║ 27 ║ 28 ║ 29 ║ 30 ║    [●]  T   ║
+    ║  ╚════╩════╩════╩════╩════╩════╩════╩════╩════╩════╝    [●]  O   ║
+    ║         ▲                                       ▲       [●]  R   ║
+    ║         └─ Alternative GND (BLACK wires)        └─ Alt  [●]  S   ║
+    ║                                                    GND  [●]      ║
+    ║  Row 4 (Pins 31-40)                                     [●]      ║
+    ║  ╔════╦════╦════╦════╦════╦════╦════╦════╦════╦════╗    [●]      ║
+    ║  ║ +5V║GND ║ SDA║ SCL║ IO4║IO27║IO21║IO13║IO26║GND ║    [●]      ║
+    ║  ╠════╬════╬════╬════╬════╬════╬════╬════╬════╬════╣    [●]      ║
+    ║  ║ 31 ║ 32 ║ 33 ║ 34 ║ 35 ║ 36 ║ 37 ║ 38 ║ 39 ║ 40 ║    [●]      ║
+    ║  ╚════╩════╩════╩════╩════╩════╩════╩════╩════╩════╝    [●]      ║
+    ║         ▲              ▲                        ▲       [●]  ↑   ║
+    ║         └─ Alternative └─ YELLOW wires +        └─ Alt  [●]      ║
+    ║            GND            resistor leg             GND  [●]      ║
+    ║                           (GPIO 4)                               ║
+    ╚══════════════════════════════════════════════════════════════════╝
+```
+
+**IMPORTANT - Terminal Locations for DS18B20:**
+
+Based on the physical board layout shown above:
+- **+3V3** (3.3V power): Terminal #1 in Row 1 → Connect RED wires here
+- **GND** (Ground): Terminal #2, #12, #22, #30, #32, or #40 → Connect BLACK wires (any GND works)
+- **IO4** (GPIO 4): Terminal #35 in Row 4 → Connect YELLOW wires here
+- **4.7kΩ Resistor**: One leg in terminal #1 (+3V3), other leg in terminal #35 (IO4)
+
+**Alternative (may vary by board revision):**
+Some boards may have different terminal arrangements. Look for these labels printed on YOUR board:
+- Find "+3V3" label → RED wires
+- Find "GND" label → BLACK wires  
+- Find "IO4" label on Row 4 (Terminal #35) → YELLOW wires
+
+The board label at Row 2 position 18 is "IO6" (not used for DS18B20).
+The GPIO 4 connection is at Row 4 position 35, labeled "IO4".
+
+**Terminal Labels (what you'll see printed on the board):**
+
+The 52Pi EP-0129 board has 40 screw terminals arranged in 4 rows of 10.
+Looking at your board with the 40-pin header at the top:
+
+```
+Row 1 (Terminals 1-10):
++3V3, GND, IO17, IO18, MOSI, MISO, SCLK, CE0, CE1, GND
+  ▲                                                   ▲
+  RED wires + resistor                               Alternative GND
+
+Row 2 (Terminals 11-20):
++3V3, GND, TXD, RXD, IO24, IO25, IO5, IO6, IO16, GND
+                                      ▲
+                                   (Not used for DS18B20)
+
+Row 3 (Terminals 21-30):
++5V, GND, IO23, IO22, IO5D, ID5C, IO12, IO20, IO19, GND
+
+Row 4 (Terminals 31-40):
++5V, GND, SDA, SCL, IO4, IO27, IO21, IO13, IO26, GND
+                    ▲
+                 YELLOW wires + resistor (GPIO 4)
+```
+
+**Key Terminal Locations:**
+- Terminal #1 (Row 1): "+3V3" → RED wires + one resistor leg
+- Terminal #2 (Row 1): "GND" → BLACK wires
+- Terminal #35 (Row 4): "IO4" → YELLOW wires + other resistor leg
+
+**Board Orientation:** 
+- The screw terminal board sits on top of the Raspberry Pi GPIO pins
+- The screw terminals face OUTWARD (toward you, away from the Pi)
+- LEDs face upward (visible when installed)
+- White pin label sticker shows pin numbers (look for "1" in corner near SD card edge)
+
+**Physical Installation:**
+1. Align board's 40-pin female header with Pi's 40-pin male header
+2. "Pin 1" on board aligns with "Pin 1" on Pi (corner near SD card slot)
+3. Press down firmly to fully seat the connector
+
+**Wiring Instructions:**
+
+```
+Step 1: Strip and prepare all sensor wires
+   
+Step 2: Connect RED wires
+        └─ All red wires go into terminal #1 (labeled "+3V3" in Row 1)
+        └─ Tighten screw to secure
+   
+Step 3: Connect BLACK wires  
+        └─ All black wires go into any GND terminal (e.g., terminal #2, #12, #22, or #32)
+        └─ Tighten screw to secure
+   
+Step 4: Connect YELLOW wires
+        └─ All yellow wires go into terminal #35 (labeled "IO4" in Row 4)
+        └─ Tighten screw to secure
+   
+Step 5: Install pull-up resistor (4.7kΩ)
+        └─ One resistor leg goes into terminal #1 (with red wires)
+        └─ Other resistor leg goes into terminal #35 (with yellow wires)
+        └─ Tighten both screws to secure resistor legs
+```
+
+**Physical Tips:**
+- Terminals are numbered 1-40 across 4 rows of 10 terminals each
+- Row 1: Terminals 1-10 (leftmost is #1)
+- Row 2: Terminals 11-20
+- Row 3: Terminals 21-30
+- Row 4: Terminals 31-40
+- "+3V3" terminal is #1 in Row 1
+- "IO4" terminal is #35 in Row 4 (this connects to GPIO 4 on the Pi)
+- "IO6" terminal is #18 in Row 2 (not used for DS18B20)
 
 2. **Label each sensor:**
    ```bash
