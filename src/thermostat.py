@@ -96,6 +96,8 @@ class ThermostatController:
         self.hvac_min_rest_time = int(os.getenv('HVAC_MIN_REST_TIME', 300))
         self.hvac_mode = os.getenv('HVAC_MODE', 'heat')
         self.history_log_interval = int(os.getenv('HISTORY_LOG_INTERVAL', 300))  # 5 minutes
+        self.history_retention_days = int(os.getenv('HISTORY_RETENTION_DAYS', '1825'))  # 5 years
+        self.history_max_disk_percent = float(os.getenv('HISTORY_MAX_DISK_PERCENT', '50.0'))  # 50%
         
         # Load persisted settings from database (overrides env)
         if self.db:
@@ -125,6 +127,7 @@ class ThermostatController:
         self.last_sensor_read = datetime.now() - timedelta(seconds=self.sensor_read_interval)
         self.last_history_log = datetime.now()
         self.last_schedule_check = datetime.now()
+        self.last_cleanup = datetime.now()
         self.latest_readings: List[SensorReading] = []
         self.latest_system_temp: Optional[float] = None
         
@@ -427,6 +430,15 @@ class ThermostatController:
                             self._log_sensor_history(readings)
                             self._log_hvac_history(system_temp)
                             self.last_history_log = now
+                        
+                        # Clean up old history once per day
+                        if self.db and (now - self.last_cleanup).total_seconds() >= 86400:  # 24 hours
+                            logger.info("Running daily database cleanup...")
+                            try:
+                                self.db.smart_cleanup(self.history_retention_days, self.history_max_disk_percent)
+                            except Exception as e:
+                                logger.error(f"Database cleanup failed: {e}")
+                            self.last_cleanup = now
                         
                         # Update web interface
                         self._update_web_interface()

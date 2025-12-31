@@ -382,6 +382,62 @@ class ThermostatDatabase:
             
             logger.info(f"Cleaned up old history: {sensor_deleted} sensor, {hvac_deleted} HVAC records")
     
+    def smart_cleanup(self, min_days_to_keep: int = 1825, max_disk_percent: float = 50.0) -> None:
+        """Smart cleanup that respects both time and disk space constraints
+        
+        Args:
+            min_days_to_keep: Minimum retention period (default 5 years = 1825 days)
+            max_disk_percent: Maximum % of disk space database can use (default 50%)
+        """
+        import shutil
+        
+        db_path = Path(self.db_path)
+        if not db_path.exists():
+            return
+        
+        # Get disk usage
+        disk_usage = shutil.disk_usage(db_path.parent)
+        total_space = disk_usage.total
+        db_size = db_path.stat().st_size
+        db_percent = (db_size / total_space) * 100
+        
+        logger.info(f"Database size: {db_size / (1024*1024):.1f} MB ({db_percent:.2f}% of disk)")
+        
+        # Always clean up records older than minimum retention
+        if min_days_to_keep > 0:
+            self.cleanup_old_history(min_days_to_keep)
+        
+        # If still over disk limit, gradually delete older data
+        if db_percent > max_disk_percent:
+            logger.warning(f"Database exceeds {max_disk_percent}% disk limit ({db_percent:.2f}%)")
+            
+            # Delete in 30-day increments beyond minimum retention
+            days_to_delete = min_days_to_keep + 30
+            max_iterations = 10  # Safety limit
+            
+            for i in range(max_iterations):
+                self.cleanup_old_history(days_to_delete)
+                
+                # Recalculate size after cleanup and VACUUM
+                with self._get_connection() as conn:
+                    conn.execute('VACUUM')
+                
+                db_size = db_path.stat().st_size
+                db_percent = (db_size / total_space) * 100
+                
+                logger.info(f"After cleanup: {db_size / (1024*1024):.1f} MB ({db_percent:.2f}% of disk)")
+                
+                if db_percent <= max_disk_percent:
+                    logger.info(f"Database now within {max_disk_percent}% disk limit")
+                    break
+                
+                days_to_delete += 30
+            
+            if db_percent > max_disk_percent:
+                logger.error(f"Unable to reduce database below {max_disk_percent}% limit after {max_iterations} iterations")
+        else:
+            logger.info(f"Database within {max_disk_percent}% disk limit")
+    
     def get_database_stats(self) -> Dict:
         """Get database statistics"""
         with self._get_connection() as conn:

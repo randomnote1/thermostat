@@ -343,7 +343,7 @@ def start_web_interface(host='0.0.0.0', port=5000):
 
 
 if __name__ == '__main__':
-    # Test mode with mock data
+    # Test mode with mock data and mock control callback
     current_state = {
         'system_temp': 72.5,
         'target_temp_heat': 68.0,
@@ -355,8 +355,55 @@ if __name__ == '__main__':
         ],
         'compromised_sensors': [],
         'last_update': datetime.now().isoformat(),
-        'hvac_mode': 'heat'
+        'hvac_mode': 'heat',
+        'schedule_enabled': True,
+        'schedule_on_hold': False
     }
+    
+    # Mock control callback for demo mode
+    def mock_control_callback(command: str, params: Dict) -> Dict:
+        """Mock control callback that updates demo state"""
+        print(f"[DEMO] Control command: {command} with params: {params}")
+        
+        with state_lock:
+            if command == 'set_temperature':
+                if params.get('type') == 'heat':
+                    current_state['target_temp_heat'] = params.get('temperature')
+                elif params.get('type') == 'cool':
+                    current_state['target_temp_cool'] = params.get('temperature')
+            
+            elif command == 'set_mode':
+                current_state['hvac_mode'] = params.get('mode')
+                # Simulate HVAC state changes
+                mode = params.get('mode')
+                if mode == 'off':
+                    current_state['hvac_state'] = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
+                elif mode == 'heat':
+                    current_state['hvac_state'] = {'heat': True, 'cool': False, 'fan': True, 'heat2': False}
+                elif mode == 'cool':
+                    current_state['hvac_state'] = {'heat': False, 'cool': True, 'fan': True, 'heat2': False}
+            
+            elif command == 'set_fan':
+                current_state['hvac_state']['fan'] = params.get('fan_on', False)
+            
+            elif command == 'resume_schedules':
+                current_state['schedule_on_hold'] = False
+                print("[DEMO] Schedules resumed")
+            
+            elif command == 'set_schedule_enabled':
+                current_state['schedule_enabled'] = params.get('enabled', True)
+                if not current_state['schedule_enabled']:
+                    current_state['schedule_on_hold'] = False
+                print(f"[DEMO] Schedules {'enabled' if current_state['schedule_enabled'] else 'disabled'}")
+            
+            current_state['last_update'] = datetime.now().isoformat()
+        
+        return {'success': True, 'message': 'Demo mode - control simulated'}
+    
+    # Set the mock callback
+    set_control_callback(mock_control_callback)
+    
     print("Starting web interface on http://0.0.0.0:5000")
     print("Access from any device: http://<raspberry-pi-ip>:5000")
+    print("\n[DEMO MODE] Controls are simulated - no real hardware will be affected")
     app.run(host='0.0.0.0', port=5000, debug=True)
