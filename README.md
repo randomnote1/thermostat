@@ -418,7 +418,7 @@ lsmod | grep w1
 ls /sys/bus/w1/devices/
 
 # If empty, check:
-cat /boot/config.txt | grep w1-gpio
+cat /boot/firmware/config.txt | grep w1-gpio
 # Should see: dtoverlay=w1-gpio,gpiopin=4
 
 # Check physical connections:

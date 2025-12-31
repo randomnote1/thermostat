@@ -53,11 +53,11 @@ sudo timedatectl set-timezone America/New_York
 # Disable WiFi
 sudo rfkill block wifi
 
-# Edit boot config
-sudo nano /boot/config.txt
+# Edit boot config (path changed in recent Raspberry Pi OS)
+sudo nano /boot/firmware/config.txt
 ```
 
-Add to `/boot/config.txt`:
+Add to `/boot/firmware/config.txt`:
 ```
 # Disable WiFi and Bluetooth
 dtoverlay=disable-wifi
