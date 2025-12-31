@@ -66,6 +66,7 @@ Two ways to use both:
   - **Mouser**: DS18B20+ (Part #: 700-DS18B20+) - $4.15 each
   - **AliExpress**: Search "DS18B20 TO-92" - $5-8 for 10pcs (2-4 week shipping)
   - Small transistor-like component with 3 wire leads
+  - **Pinout** (flat side facing you, left to right): Pin 1=GND (black), Pin 2=DATA (yellow), Pin 3=VDD (red)
   - Perfect for mounting behind wall plates
   - Smaller and cheaper than waterproof version
   - Easier to run wires through walls

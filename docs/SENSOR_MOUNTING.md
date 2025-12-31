@@ -13,7 +13,7 @@ DS18B20 temperature sensors need to be mounted in each room for accurate reading
 The bare DS18B20 looks like a small transistor:
 - **Size**: 5mm wide × 3mm thick × 7mm tall (tiny!)
 - **Form**: Black plastic component with 3 metal pins
-- **Pins**: GND, Data, VDD (typically flat side facing you, left to right)
+- **Pins**: GND, Data, VDD (flat side facing you, left to right)
 - **Wires**: You attach your own (22-24 AWG)
 - **Cost**: ~$1-2 per sensor
 
@@ -29,6 +29,8 @@ The bare DS18B20 looks like a small transistor:
        │  │  │  ← Three metal pins
        1  2  3
      GND Data VDD
+      │   │   │
+   BLACK YELLOW RED ← Wire color convention
      
     Side view (actual size):
     ┌───┐

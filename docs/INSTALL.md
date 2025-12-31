@@ -133,12 +133,35 @@ pip install -r requirements.txt
 
 #### Connect DS18B20 Sensors
 
+**DS18B20 Pinout (TO-92 Package):**
+
+When looking at the sensor with the **flat side facing you**, the three pins from left to right are:
+
+```
+    Front View (flat side facing you):
+    
+         Flat side
+    ┌───────────┐
+    │ DS18B20   │
+    │           │
+    └──┬──┬──┬──┘
+       │  │  │
+       1  2  3
+     GND DATA VDD
+      │   │   │
+   BLACK YELLOW RED
+```
+
+- **Pin 1 (Left)**: GND (Ground) → **BLACK wire**
+- **Pin 2 (Middle)**: DATA (1-Wire signal) → **YELLOW wire**  
+- **Pin 3 (Right)**: VDD (Power, 3.3V) → **RED wire**
+
 1. **Prepare sensors:**
-   - Connect 4.7kΩ pull-up resistor between 3.3V and GPIO 4
+   - Connect 4.7kΩ pull-up resistor between 3.3V and GPIO 4 (one resistor for entire bus)
    - Wire all sensors in parallel:
-     - All RED wires → 3.3V (Pin 1)
-     - All BLACK wires → Ground (Pin 6, 9, 14, 20, 25, 30, 34, or 39)
-     - All YELLOW wires → GPIO 4 (Pin 7)
+     - All RED wires (Pin 3/VDD) → 3.3V (Pi GPIO Pin 1)
+     - All BLACK wires (Pin 1/GND) → Ground (Pi GPIO Pin 6, 9, 14, 20, 25, 30, 34, or 39)
+     - All YELLOW wires (Pin 2/DATA) → GPIO 4 (Pi GPIO Pin 7)
 
 2. **Label each sensor:**
    ```bash
