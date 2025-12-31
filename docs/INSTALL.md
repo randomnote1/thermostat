@@ -104,7 +104,7 @@ ssh pi@thermostat.local
 ```bash
 # If using git:
 cd ~
-git clone https://github.com/yourusername/thermostat.git
+git clone https://github.com/randomnote1/thermostat.git
 cd thermostat
 
 # Or manually copy files via SCP from your computer:
