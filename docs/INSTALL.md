@@ -102,15 +102,15 @@ ssh pi@thermostat.local
 ### 5. Clone Repository
 
 ```bash
-# Create project directory
-mkdir -p ~/thermostat
-cd ~/thermostat
-
 # If using git:
-git clone https://github.com/yourusername/thermostat.git ~/thermostat
+cd ~
+git clone https://github.com/yourusername/thermostat.git
+cd thermostat
 
 # Or manually copy files via SCP from your computer:
+# mkdir -p ~/thermostat
 # scp -r /path/to/thermostat/* pi@thermostat.local:~/thermostat/
+# cd ~/thermostat
 ```
 
 ### 6. Set Up Python Environment
