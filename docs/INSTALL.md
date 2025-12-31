@@ -157,7 +157,7 @@ When looking at the sensor with the **flat side facing you**, the three pins fro
 - **Pin 3 (Right)**: VDD (Power, 3.3V) → **RED wire**
 
 1. **Prepare sensors:**
-   - Connect 4.7kΩ pull-up resistor between 3.3V and GPIO 4 (one resistor for entire bus)
+   - Connect 4.7kΩ pull-up resistor between 3.3V (red wire) and GPIO 4 (yellow DATA wire) - one resistor for entire bus
    - Wire all sensors in parallel:
      - All RED wires (Pin 3/VDD) → 3.3V (Pi GPIO Pin 1)
      - All BLACK wires (Pin 1/GND) → Ground (Pi GPIO Pin 6, 9, 14, 20, 25, 30, 34, or 39)
