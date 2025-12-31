@@ -87,9 +87,9 @@ sudo reboot
 ssh pi@thermostat.local
 
 # Install system packages
-sudo apt install -y python3 python3-pip python3-dev python3-venv
-sudo apt install -y python3-pil python3-numpy git
-sudo apt install -y python3-rpi.gpio python3-gpiozero python3-spidev
+sudo apt install -y python3 python3-pip python3-dev python3-venv \
+    python3-pil python3-numpy git \
+    python3-rpi.gpio python3-gpiozero python3-spidev
 
 # Add pi user to GPIO groups
 sudo usermod -a -G gpio,spi,i2c pi
