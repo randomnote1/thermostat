@@ -70,7 +70,12 @@ dtoverlay=w1-gpio,gpiopin=4
 dtparam=spi=on
 ```
 
-Save and reboot:
+**Save and exit nano:**
+- Press `Ctrl+O` (WriteOut) to save
+- Press `Enter` to confirm filename
+- Press `Ctrl+X` to exit
+
+Reboot:
 ```bash
 sudo reboot
 ```
@@ -191,6 +196,11 @@ cp config/config.example.env config.env
 # Edit with your sensor IDs
 nano config.env
 ```
+
+**Nano editor commands:**
+- Use arrow keys to navigate
+- Press `Ctrl+O` to save, then `Enter` to confirm
+- Press `Ctrl+X` to exit
 
 Update these values:
 - `SENSOR_LIVING_ROOM=` (use actual sensor ID from step 7)
