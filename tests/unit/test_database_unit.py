@@ -69,6 +69,17 @@ class TestDatabaseInitialization(unittest.TestCase):
             result = cursor.fetchone()
             self.assertIsNotNone(result)
     
+    def test_sensors_table_exists(self):
+        """Test that sensors table is created"""
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='sensors'
+            """)
+            result = cursor.fetchone()
+            self.assertIsNotNone(result)
+    
     def test_indexes_created(self):
         """Test that indexes are created for performance"""
         with self.db._get_connection() as conn:
@@ -499,6 +510,183 @@ class TestDatabaseErrorHandling(unittest.TestCase):
             db.delete_schedule(99999)
         finally:
             os.unlink(temp_db.name)
+
+
+class TestSensorCRUD(unittest.TestCase):
+    """Test sensor CRUD operations"""
+    
+    def setUp(self):
+        """Create a temporary database for each test"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db_path = self.temp_db.name
+        self.db = ThermostatDatabase(self.db_path)
+    
+    def tearDown(self):
+        """Clean up temporary database"""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+    
+    def test_add_sensor(self):
+        """Test adding a sensor"""
+        sensor_id = "28-3f7865e285f5"
+        self.db.add_sensor(sensor_id, "Living Room", enabled=True, monitored=True)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertIsNotNone(sensor)
+        self.assertEqual(sensor['sensor_id'], sensor_id)
+        self.assertEqual(sensor['name'], "Living Room")
+        self.assertTrue(sensor['enabled'])
+        self.assertTrue(sensor['monitored'])
+    
+    def test_add_sensor_defaults(self):
+        """Test adding a sensor with default values"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Bedroom")
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertIsNotNone(sensor)
+        self.assertTrue(sensor['enabled'])  # Default True
+        self.assertFalse(sensor['monitored'])  # Default False
+    
+    def test_get_sensor_not_found(self):
+        """Test getting a sensor that doesn't exist"""
+        sensor = self.db.get_sensor("28-nonexistent")
+        self.assertIsNone(sensor)
+    
+    def test_get_all_sensors(self):
+        """Test getting all sensors"""
+        self.db.add_sensor("28-000000000001", "Living Room")
+        self.db.add_sensor("28-000000000002", "Bedroom")
+        self.db.add_sensor("28-000000000003", "Kitchen", enabled=False)
+        
+        sensors = self.db.get_sensors()
+        self.assertEqual(len(sensors), 3)
+        
+        # Check ordering by name
+        names = [s['name'] for s in sensors]
+        self.assertEqual(names, sorted(names))
+    
+    def test_get_enabled_sensors_only(self):
+        """Test getting only enabled sensors"""
+        self.db.add_sensor("28-000000000001", "Living Room", enabled=True)
+        self.db.add_sensor("28-000000000002", "Bedroom", enabled=True)
+        self.db.add_sensor("28-000000000003", "Kitchen", enabled=False)
+        
+        enabled_sensors = self.db.get_sensors(enabled_only=True)
+        self.assertEqual(len(enabled_sensors), 2)
+        
+        for sensor in enabled_sensors:
+            self.assertTrue(sensor['enabled'])
+    
+    def test_update_sensor_name(self):
+        """Test updating sensor name"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room")
+        
+        result = self.db.update_sensor(sensor_id, name="Living Room (Main)")
+        self.assertTrue(result)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertEqual(sensor['name'], "Living Room (Main)")
+    
+    def test_update_sensor_enabled(self):
+        """Test updating sensor enabled status"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room", enabled=True)
+        
+        result = self.db.update_sensor(sensor_id, enabled=False)
+        self.assertTrue(result)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertFalse(sensor['enabled'])
+    
+    def test_update_sensor_monitored(self):
+        """Test updating sensor monitored status"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room", monitored=False)
+        
+        result = self.db.update_sensor(sensor_id, monitored=True)
+        self.assertTrue(result)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertTrue(sensor['monitored'])
+    
+    def test_update_sensor_multiple_fields(self):
+        """Test updating multiple sensor fields at once"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room", enabled=True, monitored=False)
+        
+        result = self.db.update_sensor(sensor_id, name="Main Room", enabled=False, monitored=True)
+        self.assertTrue(result)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertEqual(sensor['name'], "Main Room")
+        self.assertFalse(sensor['enabled'])
+        self.assertTrue(sensor['monitored'])
+    
+    def test_update_sensor_not_found(self):
+        """Test updating a sensor that doesn't exist"""
+        result = self.db.update_sensor("28-nonexistent", name="Should Fail")
+        self.assertFalse(result)
+    
+    def test_update_sensor_no_changes(self):
+        """Test updating sensor with no fields specified"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room")
+        
+        result = self.db.update_sensor(sensor_id)
+        self.assertFalse(result)
+    
+    def test_delete_sensor(self):
+        """Test deleting a sensor"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room")
+        
+        result = self.db.delete_sensor(sensor_id)
+        self.assertTrue(result)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertIsNone(sensor)
+    
+    def test_delete_sensor_not_found(self):
+        """Test deleting a sensor that doesn't exist"""
+        result = self.db.delete_sensor("28-nonexistent")
+        self.assertFalse(result)
+    
+    def test_add_sensor_replace_existing(self):
+        """Test that adding a sensor with existing ID replaces it"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room", enabled=True, monitored=False)
+        self.db.add_sensor(sensor_id, "Updated Room", enabled=False, monitored=True)
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertEqual(sensor['name'], "Updated Room")
+        self.assertFalse(sensor['enabled'])
+        self.assertTrue(sensor['monitored'])
+    
+    def test_sensor_timestamps(self):
+        """Test that sensor timestamps are set correctly"""
+        sensor_id = "28-000000000001"
+        self.db.add_sensor(sensor_id, "Living Room")
+        
+        sensor = self.db.get_sensor(sensor_id)
+        self.assertIsNotNone(sensor['created_at'])
+        self.assertIsNotNone(sensor['updated_at'])
+        
+        # Timestamps should be set to same value initially
+        self.assertEqual(sensor['created_at'], sensor['updated_at'])
+        
+        # Update sensor and check updated_at is maintained (may or may not change depending on DB precision)
+        import time
+        time.sleep(1.1)  # Sleep longer to ensure timestamp changes
+        self.db.update_sensor(sensor_id, name="Updated")
+        
+        updated_sensor = self.db.get_sensor(sensor_id)
+        # created_at should not change
+        self.assertEqual(sensor['created_at'], updated_sensor['created_at'])
+        # updated_at should change after sufficient time
+        self.assertNotEqual(sensor['updated_at'], updated_sensor['updated_at'])
 
 
 if __name__ == '__main__':
