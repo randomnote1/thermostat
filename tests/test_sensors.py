@@ -48,7 +48,7 @@ def main():
     for i, sensor in enumerate(sensors, 1):
         print(f"Sensor #{i}")
         print(f"  ID: {sensor.id}")
-        print(f"  Type: {sensor.type_name}")
+        print(f"  Type: {sensor.type}")
         
         try:
             temp_c = sensor.get_temperature()

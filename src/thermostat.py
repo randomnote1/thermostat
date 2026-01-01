@@ -47,12 +47,21 @@ log_file = os.getenv('LOG_FILE', '/var/log/thermostat.log')
 # Create handlers list
 handlers = [logging.StreamHandler(sys.stdout)]
 
-# Add file handler if directory exists
-log_dir = os.path.dirname(log_file)
-if log_dir and os.path.exists(log_dir):
+# Add file handler if possible
+try:
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        # Try to create log directory
+        os.makedirs(log_dir, exist_ok=True)
     handlers.append(logging.FileHandler(log_file))
-elif not log_dir:  # No directory specified, log to current directory
-    handlers.append(logging.FileHandler(os.path.basename(log_file)))
+except (PermissionError, OSError) as e:
+    # Fall back to local log file if /var/log is not writable
+    local_log_file = os.path.join(os.path.dirname(__file__), '..', 'thermostat.log')
+    try:
+        handlers.append(logging.FileHandler(local_log_file))
+        print(f"Warning: Cannot write to {log_file}, logging to {local_log_file}")
+    except Exception as e2:
+        print(f"Warning: File logging disabled - {e}")
 
 logging.basicConfig(
     level=getattr(logging, log_level),

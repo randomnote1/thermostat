@@ -421,6 +421,11 @@ python3 tests/test_display.py
 # Copy example config
 cp config/config.example.env config.env
 
+# Create log file with proper permissions
+sudo touch /var/log/thermostat.log
+sudo chown pi:pi /var/log/thermostat.log
+sudo chmod 644 /var/log/thermostat.log
+
 # Edit with your sensor IDs
 nano config.env
 ```
