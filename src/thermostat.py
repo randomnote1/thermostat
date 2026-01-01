@@ -124,9 +124,15 @@ class ThermostatController:
         self.gpio_relay_fan = int(os.getenv('GPIO_RELAY_FAN', 22))
         self.gpio_relay_heat2 = int(os.getenv('GPIO_RELAY_HEAT2', 23))
         
-        # Sensor mapping
-        self.sensor_map = self._load_sensor_map()
-        self.monitored_sensors = os.getenv('MONITORED_SENSORS', '').split(',')
+        # Sensor mapping - load from database first, fall back to env
+        self.sensor_map = {}
+        self.monitored_sensors = []
+        if self.db:
+            self._load_sensors_from_database()
+        if not self.sensor_map:
+            # Fall back to environment variables if database is empty
+            self.sensor_map = self._load_sensor_map()
+            self.monitored_sensors = os.getenv('MONITORED_SENSORS', '').split(',')
         
         # State tracking
         self.sensor_history: Dict[str, List[SensorReading]] = {}
@@ -178,7 +184,41 @@ class ThermostatController:
                and not key.startswith('SENSOR_IGNORE'):
                 sensor_name = key.replace('SENSOR_', '').replace('_', ' ').title()
                 sensor_map[value] = sensor_name
+        logger.debug(f"Loaded {len(sensor_map)} sensors from environment")
         return sensor_map
+    
+    def _load_sensors_from_database(self) -> None:
+        """Load sensor configuration from database"""
+        if not self.db:
+            return
+        
+        sensors = self.db.get_sensors(enabled_only=True)
+        self.sensor_map = {}
+        self.monitored_sensors = []
+        
+        for sensor in sensors:
+            self.sensor_map[sensor['sensor_id']] = sensor['name']
+            if sensor['monitored']:
+                self.monitored_sensors.append(sensor['sensor_id'])
+        
+        logger.debug(f"Loaded {len(self.sensor_map)} sensors from database "
+                    f"({len(self.monitored_sensors)} monitored)")
+    
+    def _register_new_sensors(self, detected_sensors: List[str]) -> None:
+        """Auto-register newly detected sensors in the database"""
+        if not self.db:
+            return
+        
+        for sensor_id in detected_sensors:
+            existing = self.db.get_sensor(sensor_id)
+            if not existing:
+                # Auto-register with a default name
+                name = f"Sensor {sensor_id[-6:]}"  # Last 6 chars of ID
+                self.db.add_sensor(sensor_id, name, enabled=True, monitored=False)
+                logger.info(f"Auto-registered new sensor: {sensor_id} as '{name}'")
+                
+                # Reload sensor map to include the new sensor
+                self._load_sensors_from_database()
     
     def read_sensors(self) -> List[SensorReading]:
         """Read all temperature sensors"""
@@ -194,14 +234,26 @@ class ThermostatController:
             return readings
         
         try:
+            detected_sensor_ids = []
             for sensor in W1ThermSensor.get_available_sensors():
                 sensor_id = sensor.id
+                detected_sensor_ids.append(sensor_id)
+                temp_c = sensor.get_temperature()
+                temp_f = (temp_c * 9/5) + 32
+                
+                # Use configured name if available, otherwise use sensor ID
                 if sensor_id in self.sensor_map:
-                    temp_c = sensor.get_temperature()
-                    temp_f = (temp_c * 9/5) + 32
                     name = self.sensor_map[sensor_id]
-                    readings.append(SensorReading(sensor_id, name, temp_f, datetime.now()))
                     logger.debug(f"Sensor {name}: {temp_f:.1f}°F")
+                else:
+                    name = f"Unconfigured ({sensor_id[:8]})"
+                    logger.debug(f"Sensor {sensor_id} (unconfigured): {temp_f:.1f}°F")
+                
+                readings.append(SensorReading(sensor_id, name, temp_f, datetime.now()))
+            
+            # Auto-register any new sensors in the database
+            if self.db and detected_sensor_ids:
+                self._register_new_sensors(detected_sensor_ids)
         except Exception as e:
             logger.error(f"Error reading sensors: {e}")
         
@@ -660,6 +712,15 @@ class ThermostatController:
             elif command == 'set_schedule_enabled':
                 enabled = params.get('enabled', True)
                 return self.set_schedule_enabled(enabled)
+            
+            elif command == 'reload_sensors':
+                # Reload sensor configuration from database
+                if self.db:
+                    self._load_sensors_from_database()
+                    logger.info("Sensor configuration reloaded from database")
+                    return {'success': True, 'message': 'Sensor configuration reloaded'}
+                else:
+                    return {'success': False, 'error': 'Database not available'}
             
             else:
                 logger.warning(f"Unknown command: {command}")

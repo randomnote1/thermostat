@@ -69,6 +69,18 @@ class ThermostatDatabase:
                 )
             ''')
             
+            # Sensors table - sensor configuration and labels
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sensors (
+                    sensor_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    enabled INTEGER DEFAULT 1,
+                    monitored INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             # Setting history - audit log of setting changes
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS setting_history (
@@ -162,6 +174,109 @@ class ThermostatDatabase:
                     'updated_at': row['updated_at']
                 }
             return None
+    
+    # ==================== SENSORS ====================
+    
+    def add_sensor(self, sensor_id: str, name: str, enabled: bool = True, 
+                   monitored: bool = False) -> None:
+        """Add a new sensor to the database"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO sensors (sensor_id, name, enabled, monitored, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (sensor_id, name, int(enabled), int(monitored)))
+            logger.debug(f"Sensor added/updated: {sensor_id} -> {name} (enabled={enabled}, monitored={monitored})")
+    
+    def get_sensor(self, sensor_id: str) -> Optional[Dict]:
+        """Get a single sensor by ID"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM sensors WHERE sensor_id = ?', (sensor_id,))
+            row = cursor.fetchone()
+            
+            if row:
+                return {
+                    'sensor_id': row['sensor_id'],
+                    'name': row['name'],
+                    'enabled': bool(row['enabled']),
+                    'monitored': bool(row['monitored']),
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at']
+                }
+            return None
+    
+    def get_sensors(self, enabled_only: bool = False) -> List[Dict]:
+        """Get all sensors from the database"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if enabled_only:
+                cursor.execute('SELECT * FROM sensors WHERE enabled = 1 ORDER BY name')
+            else:
+                cursor.execute('SELECT * FROM sensors ORDER BY name')
+            
+            rows = cursor.fetchall()
+            sensors = []
+            
+            for row in rows:
+                sensors.append({
+                    'sensor_id': row['sensor_id'],
+                    'name': row['name'],
+                    'enabled': bool(row['enabled']),
+                    'monitored': bool(row['monitored']),
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at']
+                })
+            
+            return sensors
+    
+    def update_sensor(self, sensor_id: str, name: str = None, 
+                     enabled: bool = None, monitored: bool = None) -> bool:
+        """Update sensor properties"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build update query dynamically based on provided parameters
+            updates = []
+            params = []
+            
+            if name is not None:
+                updates.append('name = ?')
+                params.append(name)
+            
+            if enabled is not None:
+                updates.append('enabled = ?')
+                params.append(int(enabled))
+            
+            if monitored is not None:
+                updates.append('monitored = ?')
+                params.append(int(monitored))
+            
+            if not updates:
+                return False
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            params.append(sensor_id)
+            
+            query = f"UPDATE sensors SET {', '.join(updates)} WHERE sensor_id = ?"
+            cursor.execute(query, params)
+            
+            if cursor.rowcount > 0:
+                logger.debug(f"Sensor updated: {sensor_id}")
+                return True
+            return False
+    
+    def delete_sensor(self, sensor_id: str) -> bool:
+        """Delete a sensor from the database"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM sensors WHERE sensor_id = ?', (sensor_id,))
+            
+            if cursor.rowcount > 0:
+                logger.debug(f"Sensor deleted: {sensor_id}")
+                return True
+            return False
     
     # ==================== SETTING HISTORY ====================
     

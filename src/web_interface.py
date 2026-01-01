@@ -317,6 +317,62 @@ def api_settings_history():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/sensors/config', methods=['GET'])
+def api_get_sensor_configs():
+    """Get all sensor configurations from database"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        sensors = database.get_sensors(enabled_only=False)
+        return jsonify({'sensors': sensors})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sensors/config/<sensor_id>', methods=['PUT'])
+def api_update_sensor_config(sensor_id):
+    """Update sensor configuration"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        data = request.json
+        name = data.get('name')
+        enabled = data.get('enabled')
+        monitored = data.get('monitored')
+        
+        if not database.update_sensor(sensor_id, name=name, enabled=enabled, monitored=monitored):
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Notify controller to reload sensors
+        if control_callback:
+            control_callback({'action': 'reload_sensors'})
+        
+        return jsonify({'success': True, 'sensor_id': sensor_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sensors/config/<sensor_id>', methods=['DELETE'])
+def api_delete_sensor_config(sensor_id):
+    """Delete sensor configuration"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        if not database.delete_sensor(sensor_id):
+            return jsonify({'error': 'Sensor not found'}), 404
+        
+        # Notify controller to reload sensors
+        if control_callback:
+            control_callback({'action': 'reload_sensors'})
+        
+        return jsonify({'success': True, 'sensor_id': sensor_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/database/stats', methods=['GET'])
 def api_database_stats():
     """Get database statistics"""
