@@ -230,16 +230,15 @@ if elapsed >= self.update_interval:
 
 ### Quick Commit
 When user requests "quick commit", "commit changes", or similar:
-1. Run `git status` to check what files have changed
+1. Run `git diff` to review the actual changes being committed
 2. If there are new untracked files: Use `git add . && git commit -m "message"`
 3. If only modifying existing files: Use `git commit -am "message"` (most efficient)
 4. Create a descriptive commit message based on the changes made
-5. No need to show full diffs unless specifically requested
 
 Example workflows:
 ```bash
-# Check status first
-git status
+# Review changes
+git diff
 
 # Most efficient (when no new files):
 git commit -am "Descriptive message based on changes"
