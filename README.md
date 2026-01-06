@@ -328,8 +328,21 @@ User-facing settings are stored in `thermostat.db` and managed via the web inter
 - Fan mode (auto, on, circulate)
 - Schedules (time-based temperature programs)
 - Sensor names and monitoring preferences
+- Temperature display units (Fahrenheit, Celsius, or Kelvin)
 
-The web interface is available at `http://your-raspberry-pi-ip:5000`
+### Web Interface
+
+The web interface is available at `http://your-raspberry-pi-ip:5000` with four main pages:
+
+1. **Dashboard** - Real-time system status, temperature readings, and quick controls
+2. **Schedules** - Create and manage time-based temperature programs
+3. **History** - View historical temperature and HVAC data with charts
+4. **Settings** - Configure preferences and sensor names
+   - Change temperature display units (°F, °C, K)
+   - Rename sensors (e.g., "Living Room", "Bedroom")
+   - Enable/disable sensors
+   - Configure which sensors are monitored for fireplace anomalies
+   - View database statistics
 
 ### Key Configuration Settings
 

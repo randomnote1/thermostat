@@ -17,6 +17,10 @@
     --accent-color: #667eea;
     --border-color: #e2e8f0;
     --shadow: rgba(0,0,0,0.2);
+    --primary-color: #667eea;
+        --success-color: #48bb78;
+        --sensor-bg: #f7fafc;
+        --info-bg: #ebf8ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +35,10 @@
         --accent-color: #a78bfa;
         --border-color: #4a5568;
         --shadow: rgba(0,0,0,0.5);
+        --primary-color: #a78bfa;
+            --success-color: #48bb78;
+            --sensor-bg: #374151;
+            --info-bg: #2c5282;
     }
 }
 
@@ -45,6 +53,10 @@
     --accent-color: #a78bfa;
     --border-color: #4a5568;
     --shadow: rgba(0,0,0,0.5);
+    --primary-color: #a78bfa;
+        --success-color: #48bb78;
+        --sensor-bg: #374151;
+        --info-bg: #2c5282;
 }
 
 body {

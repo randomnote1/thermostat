@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Thermostat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+    <style>
+        /* Settings-specific styles */
+        .settings-section {
+            margin-bottom: 30px;
+        }
+
+        .settings-section h2 {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .setting-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: var(--sensor-bg);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .setting-item label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .setting-description {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .setting-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sensor-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .sensor-card {
+            padding: 20px;
+            background: var(--sensor-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .sensor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .sensor-id {
+            font-family: monospace;
+            font-size: 0.85em;
+            color: var(--text-secondary);
+        }
+
+        .sensor-controls {
+            display: grid;
+            gap: 10px;
+        }
+
+        .sensor-control-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .sensor-control-row label {
+            min-width: 120px;
+            font-weight: 500;
+        }
+
+        .sensor-control-row input[type="text"] {
+            flex: 1;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .save-button {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .save-button:hover {
+            background: #2ecc71;
+            transform: translateY(-1px);
+        }
+
+        .save-button:active {
+            transform: translateY(0);
+        }
+
+        .save-button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .radio-label input[type="radio"] {
+            cursor: pointer;
+        }
+
+        .info-box {
+            padding: 15px;
+            background: var(--info-bg);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+        }
+
+        .success-message, .error-message {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .sensor-control-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .sensor-control-row label {
+                min-width: auto;
+            }
+
+            .sensor-control-row input[type="text"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+        <span id="theme-icon">🌙</span>
+    </button>
+    
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Settings</h1>
+        </div>
+
+        <div class="nav">
+            <a href="/">Dashboard</a>
+            <a href="/schedules">Schedules</a>
+            <a href="/history">History</a>
+            <a href="/settings" class="active">Settings</a>
+        </div>
+
+        <div id="messages"></div>
+
+        <!-- Temperature Units Section -->
+        <section class="settings-section">
+            <div class="card">
+                <h2>Display Preferences</h2>
+                
+                <div class="setting-item">
+                    <div>
+                        <label>Temperature Units</label>
+                        <div class="setting-description">Choose how temperatures are displayed throughout the interface</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="units" value="F" id="units-f">
+                                Fahrenheit (°F)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="units" value="C" id="units-c">
+                                Celsius (°C)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="units" value="K" id="units-k">
+                                Kelvin (K)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sensor Configuration Section -->
+        <section class="settings-section">
+            <div class="card">
+                <h2>Sensor Configuration</h2>
+                
+                <div class="info-box">
+                    <p><strong>Sensor Names:</strong> Give each sensor a meaningful name (e.g., "Living Room", "Bedroom")</p>
+                    <p><strong>Enabled:</strong> Include sensor in temperature calculations</p>
+                    <p><strong>Monitored:</strong> Watch for fireplace anomalies (rapid temperature changes)</p>
+                </div>
+
+                <div class="sensor-list" id="sensor-list">
+                    <!-- Sensors will be loaded here dynamically -->
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                        Loading sensors...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- System Information Section -->
+        <section class="settings-section">
+            <div class="card">
+                <h2>System Information</h2>
+                
+                <div class="setting-item">
+                    <div>
+                        <label>Database Path</label>
+                        <div class="setting-description" id="db-path">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <label>Database Size</label>
+                        <div class="setting-description" id="db-size">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <label>Sensor Readings Logged</label>
+                        <div class="setting-description" id="sensor-count">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div>
+                        <label>HVAC Events Logged</label>
+                        <div class="setting-description" id="hvac-count">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
+    <script>
+        let currentSensors = [];
+
+        // Show message to user
+        function showMessage(message, isError = false) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = isError ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.style.opacity = '0';
+                setTimeout(() => messageDiv.remove(), 300);
+            }, 5000);
+        }
+
+        // Load current temperature units
+        async function loadUnits() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                const units = data.temperature_units || 'F';
+                
+                document.getElementById(`units-${units.toLowerCase()}`).checked = true;
+            } catch (error) {
+                console.error('Error loading units:', error);
+            }
+        }
+
+        // Load sensors
+        async function loadSensors() {
+            try {
+                const response = await fetch('/api/sensors/config');
+                const data = await response.json();
+                currentSensors = data.sensors || [];
+                
+                renderSensors();
+            } catch (error) {
+                console.error('Error loading sensors:', error);
+                showMessage('Error loading sensors: ' + error.message, true);
+            }
+        }
+
+        // Render sensor list
+        function renderSensors() {
+            const container = document.getElementById('sensor-list');
+            
+            if (currentSensors.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                        No sensors configured. Sensors will appear here when detected.
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            currentSensors.forEach(sensor => {
+                const card = document.createElement('div');
+                card.className = 'sensor-card';
+                card.innerHTML = `
+                    <div class="sensor-header">
+                        <div>
+                            <strong>${escapeHtml(sensor.name || sensor.sensor_id)}</strong>
+                            <div class="sensor-id">${escapeHtml(sensor.sensor_id)}</div>
+                        </div>
+                    </div>
+                    <div class="sensor-controls">
+                        <div class="sensor-control-row">
+                            <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
+                            <input 
+                                type="text" 
+                                id="name-${escapeHtml(sensor.sensor_id)}"
+                                value="${escapeHtml(sensor.name || '')}"
+                                placeholder="e.g., Living Room"
+                                data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                            >
+                        </div>
+                        <div class="sensor-control-row">
+                            <label class="checkbox-label">
+                                <input 
+                                    type="checkbox" 
+                                    id="enabled-${escapeHtml(sensor.sensor_id)}"
+                                    ${sensor.enabled ? 'checked' : ''}
+                                    data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                                >
+                                Enabled (include in temperature calculations)
+                            </label>
+                        </div>
+                        <div class="sensor-control-row">
+                            <label class="checkbox-label">
+                                <input 
+                                    type="checkbox" 
+                                    id="monitored-${escapeHtml(sensor.sensor_id)}"
+                                    ${sensor.monitored ? 'checked' : ''}
+                                    data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                                >
+                                Monitored (watch for fireplace anomalies)
+                            </label>
+                        </div>
+                        <div class="sensor-control-row">
+                            <button 
+                                class="save-button" 
+                                onclick="saveSensor('${escapeHtml(sensor.sensor_id)}')"
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Save sensor configuration
+        async function saveSensor(sensorId) {
+            const nameInput = document.getElementById(`name-${sensorId}`);
+            const enabledInput = document.getElementById(`enabled-${sensorId}`);
+            const monitoredInput = document.getElementById(`monitored-${sensorId}`);
+            
+            const saveButton = event.target;
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+            
+            try {
+                const response = await fetch(`/api/sensors/config/${encodeURIComponent(sensorId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nameInput.value,
+                        enabled: enabledInput.checked,
+                        monitored: monitoredInput.checked
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save sensor');
+                }
+                
+                showMessage(`Sensor "${nameInput.value || sensorId}" saved successfully`);
+                
+                // Update local data
+                const sensor = currentSensors.find(s => s.sensor_id === sensorId);
+                if (sensor) {
+                    sensor.name = nameInput.value;
+                    sensor.enabled = enabledInput.checked;
+                    sensor.monitored = monitoredInput.checked;
+                }
+                
+            } catch (error) {
+                console.error('Error saving sensor:', error);
+                showMessage('Error saving sensor: ' + error.message, true);
+            } finally {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save Changes';
+            }
+        }
+
+        // Load database statistics
+        async function loadDatabaseStats() {
+            try {
+                const response = await fetch('/api/database/stats');
+                const stats = await response.json();
+                
+                document.getElementById('db-path').textContent = stats.database_path || 'Unknown';
+                document.getElementById('db-size').textContent = formatBytes(stats.database_size_bytes || 0);
+                document.getElementById('sensor-count').textContent = (stats.sensor_history_count || 0).toLocaleString();
+                document.getElementById('hvac-count').textContent = (stats.hvac_history_count || 0).toLocaleString();
+            } catch (error) {
+                console.error('Error loading database stats:', error);
+            }
+        }
+
+        // Format bytes to human-readable size
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle temperature units change
+        document.querySelectorAll('input[name="units"]').forEach(radio => {
+            radio.addEventListener('change', async (e) => {
+                const units = e.target.value;
+                
+                try {
+                    const response = await fetch('/api/control/units', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ units })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to update units');
+                    }
+                    
+                    showMessage(`Temperature units changed to ${units === 'F' ? 'Fahrenheit' : units === 'C' ? 'Celsius' : 'Kelvin'}`);
+                    
+                    // Reload page after short delay to show new units
+                    setTimeout(() => window.location.reload(), 1500);
+                    
+                } catch (error) {
+                    console.error('Error updating units:', error);
+                    showMessage('Error updating units: ' + error.message, true);
+                    // Reload current units
+                    loadUnits();
+                }
+            });
+        });
+
+        // Initial load
+        loadUnits();
+        loadSensors();
+        loadDatabaseStats();
+
+        // Refresh sensors periodically
+        setInterval(loadSensors, 30000); // Every 30 seconds
+        setInterval(loadDatabaseStats, 60000); // Every minute
+    </script>
+</body>
+</html>

@@ -1129,5 +1129,119 @@ class TestHistoryEndpointsException(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
 
 
+class TestSettingsPage(unittest.TestCase):
+    """Test settings page and related endpoints"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Set up mock database
+        self.mock_db = MagicMock()
+        set_database(self.mock_db)
+        
+        # Set up mock control callback
+        self.control_callback = MagicMock(return_value={'success': True})
+        set_control_callback(self.control_callback)
+    
+    def test_settings_page_renders(self):
+        """Test settings page renders without error"""
+        response = self.client.get('/settings')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Settings', response.data)
+    
+    def test_get_sensor_configs(self):
+        """Test getting sensor configurations"""
+        self.mock_db.get_sensors.return_value = [
+            {'sensor_id': '28-001', 'name': 'Living Room', 'enabled': True, 'monitored': True},
+            {'sensor_id': '28-002', 'name': 'Bedroom', 'enabled': True, 'monitored': False}
+        ]
+        
+        response = self.client.get('/api/sensors/config')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertEqual(len(data['sensors']), 2)
+        self.assertEqual(data['sensors'][0]['name'], 'Living Room')
+    
+    def test_get_sensor_configs_without_database(self):
+        """Test getting sensor configs without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/sensors/config')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_update_sensor_config(self):
+        """Test updating sensor configuration"""
+        self.mock_db.update_sensor.return_value = True
+        
+        response = self.client.put('/api/sensors/config/28-001',
+                                   data=json.dumps({
+                                       'name': 'New Name',
+                                       'enabled': True,
+                                       'monitored': False
+                                   }),
+                                   content_type='application/json')
+        
+        self.assertEqual(response.status_code, 200)
+        self.mock_db.update_sensor.assert_called_once_with(
+            '28-001',
+            name='New Name',
+            enabled=True,
+            monitored=False
+        )
+    
+    def test_update_sensor_config_not_found(self):
+        """Test updating non-existent sensor"""
+        self.mock_db.update_sensor.return_value = False
+        
+        response = self.client.put('/api/sensors/config/28-999',
+                                   data=json.dumps({'name': 'Test'}),
+                                   content_type='application/json')
+        
+        self.assertEqual(response.status_code, 404)
+    
+    def test_delete_sensor_config(self):
+        """Test deleting sensor configuration"""
+        self.mock_db.delete_sensor.return_value = True
+        
+        response = self.client.delete('/api/sensors/config/28-001')
+        
+        self.assertEqual(response.status_code, 200)
+        self.mock_db.delete_sensor.assert_called_once_with('28-001')
+    
+    def test_delete_sensor_config_not_found(self):
+        """Test deleting non-existent sensor"""
+        self.mock_db.delete_sensor.return_value = False
+        
+        response = self.client.delete('/api/sensors/config/28-999')
+        
+        self.assertEqual(response.status_code, 404)
+    
+    def test_get_database_stats(self):
+        """Test getting database statistics"""
+        self.mock_db.get_database_stats.return_value = {
+            'database_path': '/path/to/db.sqlite',
+            'database_size_bytes': 1048576,
+            'sensor_history_count': 5000,
+            'hvac_history_count': 1000
+        }
+        
+        response = self.client.get('/api/database/stats')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertEqual(data['database_size_bytes'], 1048576)
+        self.assertEqual(data['sensor_history_count'], 5000)
+    
+    def test_get_database_stats_without_database(self):
+        """Test getting stats without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/database/stats')
+        self.assertEqual(response.status_code, 503)
+
+
 if __name__ == '__main__':
     unittest.main()

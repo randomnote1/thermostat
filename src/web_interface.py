@@ -128,6 +128,12 @@ def history_page():
     return render_template('history.html')
 
 
+@app.route('/settings')
+def settings_page():
+    """Settings page"""
+    return render_template('settings.html')
+
+
 @app.route('/api/status')
 def api_status():
     """API endpoint for current status"""
