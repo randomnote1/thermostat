@@ -63,7 +63,6 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
-            margin-bottom: 20px;
         }
 
         .card {
@@ -73,8 +72,14 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
-        .card + .card {
-            margin-top: 20px;
+        /* Consistent 20px spacing between major sections */
+        .grid,
+        .container > .card {
+            margin-bottom: 20px;
+        }
+
+        .container > .card:last-child {
+            margin-bottom: 0;
         }
 
         .card h2 {
