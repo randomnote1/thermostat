@@ -824,6 +824,7 @@
                             const stdDevUpperData = data.timestamps.map((timestamp, i) => ({
                                 x: timestamp,
                                 y: data.temperatures[i] + data.stdDevs[i]
+                            }));
                                          
                             const stdDevLowerData = data.timestamps.map((timestamp, i) => ({
                                 x: timestamp,
@@ -831,12 +832,12 @@
                             }));
                             
                             // Add lower bound
-    datasets.push({
+                            datasets.push({
                                 label: '-1 StdDev (per bucket)',
                                 data: stdDevLowerData,
                                 backgroundColor: 'transparent',
                                 borderColor: 'rgba(168, 85, 247, 0.6)',
-                 1.5,
+    1.5,
                                 borderDash: [3, 3],
                                 fill: false,
                                 tension: 0.4,
@@ -854,7 +855,8 @@
                                 fill: '-1',
                                 tension: 0.4,
                                 pointRadius: 0,
-                                                                        }
+                                                    });
+                        }
                     }
 
                     // Destroy existing chart if it exists
