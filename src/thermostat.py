@@ -45,8 +45,9 @@ except ImportError:
     DATABASE_AVAILABLE = False
     print("Warning: Database module not available")
 
-# Load configuration
-load_dotenv('config.env')
+# Load configuration from project root
+config_path = os.path.join(os.path.dirname(__file__), '..', 'config.env')
+load_dotenv(config_path)
 
 # Configure logging
 log_level = os.getenv('LOG_LEVEL', 'INFO')
@@ -138,10 +139,12 @@ class ThermostatController:
         self.monitored_sensors = []
         if self.db:
             self._load_sensors_from_database()
-        if not self.sensor_map:
-            # Fall back to environment variables if database is empty
-            self.sensor_map = self._load_sensor_map()
-            self.monitored_sensors = os.getenv('MONITORED_SENSORS', '').split(',')
+        
+        # Load monitored sensor list from config (if not loaded from database)
+        if not self.monitored_sensors:
+            monitored = os.getenv('MONITORED_SENSORS', '')
+            if monitored:
+                self.monitored_sensors = [s.strip() for s in monitored.split(',') if s.strip()]
         
         # State tracking
         self.sensor_history: Dict[str, List[SensorReading]] = {}
@@ -183,18 +186,6 @@ class ThermostatController:
         
         logger.info(f"Thermostat initialized - Mode: {self.hvac_mode}, "
                    f"Heat: {self.target_temp_heat}°F, Cool: {self.target_temp_cool}°F")
-    
-    def _load_sensor_map(self) -> Dict[str, str]:
-        """Load sensor ID to name mapping from environment"""
-        sensor_map = {}
-        for key, value in os.environ.items():
-            if key.startswith('SENSOR_') and not key.startswith('SENSOR_READ') \
-               and not key.startswith('SENSOR_ANOMALY') and not key.startswith('SENSOR_DEVIATION') \
-               and not key.startswith('SENSOR_IGNORE'):
-                sensor_name = key.replace('SENSOR_', '').replace('_', ' ').title()
-                sensor_map[value] = sensor_name
-        logger.debug(f"Loaded {len(sensor_map)} sensors from environment")
-        return sensor_map
     
     def _load_sensors_from_database(self) -> None:
         """Load sensor configuration from database"""

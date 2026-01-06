@@ -301,53 +301,73 @@ C (Common) ─┘    (MEAN WELL IRM-03-5)
 
 ## Configuration
 
-### config.env File
+The thermostat uses a two-tier configuration system:
 
-Create a `config.env` file with your settings:
+### 1. Hardware Configuration (`config.env`)
+
+Edit `config.env` in the project root to match your hardware setup:
 
 ```bash
-# Temperature Settings
-TARGET_TEMP_HEAT=68.0          # Heating setpoint (°F)
-TARGET_TEMP_COOL=74.0          # Cooling setpoint (°F)
-HYSTERESIS=0.5                 # Dead band (°F)
+nano config.env
+```
 
-# Sensor Configuration
-SENSOR_READ_INTERVAL=30        # Seconds between sensor reads
-SENSOR_ANOMALY_THRESHOLD=3.0   # °F change in 5 min to flag sensor
-SENSOR_DEVIATION_THRESHOLD=5.0 # °F above average to flag sensor
-SENSOR_IGNORE_DURATION=3600    # Seconds to ignore flagged sensor (1 hour)
+This file contains **hardware-specific settings** that rarely change:
+- GPIO pin assignments (must match your wiring)
+- Sensor timing and thresholds
+- HVAC safety timings
+- Database and logging paths
+- Initial sensor IDs (for first-run discovery)
 
-# Room/Sensor Mapping (DS18B20 sensor IDs)
-# Find these by running: ls /sys/bus/w1/devices/
-SENSOR_LIVING_ROOM=28-0000000001
-SENSOR_KITCHEN=28-0000000002
-SENSOR_BEDROOM_1=28-0000000003
-SENSOR_BEDROOM_2=28-0000000004
-SENSOR_BASEMENT=28-0000000005
-SENSOR_FIREPLACE_ROOM=28-0000000006
+**Important:** After initial setup, most settings (temperatures, modes, schedules) are managed via the web interface and stored in the database.
 
-# Sensors to monitor for anomalies (near fireplace)
-MONITORED_SENSORS=SENSOR_FIREPLACE_ROOM
+### 2. Runtime Configuration (Database)
 
-# HVAC Settings
-HVAC_MIN_RUN_TIME=300          # Minimum HVAC run time (5 min)
-HVAC_MIN_REST_TIME=300         # Minimum time between cycles (5 min)
-HVAC_MODE=heat                 # Options: heat, cool, auto, off
+User-facing settings are stored in `thermostat.db` and managed via the web interface:
+- Target temperatures (heat/cool setpoints)
+- HVAC mode (heat, cool, auto, off)
+- Fan mode (auto, on, circulate)
+- Schedules (time-based temperature programs)
+- Sensor names and monitoring preferences
 
-# GPIO Pin Assignments (BCM numbering)
+The web interface is available at `http://your-raspberry-pi-ip:5000`
+
+### Key Configuration Settings
+
+See `config.example.env` for detailed documentation. Critical settings include:
+
+### Key Configuration Settings
+
+See `config.example.env` for detailed documentation. Critical settings include:
+
+**GPIO Pins** (BCM numbering - must match your relay board):
+```bash
 GPIO_RELAY_HEAT=17
 GPIO_RELAY_COOL=27
 GPIO_RELAY_FAN=22
 GPIO_RELAY_HEAT2=23
-
-# Display Settings
-DISPLAY_UPDATE_INTERVAL=60     # Seconds between display updates
-DISPLAY_TYPE=waveshare_2in13_v2
-
-# Logging
-LOG_LEVEL=INFO                 # Options: DEBUG, INFO, WARNING, ERROR
-LOG_FILE=/var/log/thermostat.log
 ```
+
+**Sensor Settings** (adjust based on your fireplace behavior):
+```bash
+SENSOR_ANOMALY_THRESHOLD=3.0    # °F rapid change = fireplace ignition
+SENSOR_DEVIATION_THRESHOLD=5.0  # °F above average = too close to fireplace
+SENSOR_IGNORE_DURATION=3600     # Ignore compromised sensor for 1 hour
+```
+
+**HVAC Safety** (protect your equipment):
+```bash
+HVAC_MIN_RUN_TIME=300           # 5-minute minimum runtime
+HVAC_MIN_REST_TIME=300          # 5-minute minimum between cycles
+```
+
+**First-Run Defaults** (database takes over after first run):
+```bash
+TARGET_TEMP_HEAT=68.0           # Initial heating setpoint (°F)
+TARGET_TEMP_COOL=74.0           # Initial cooling setpoint (°F)
+HVAC_MODE=heat                  # Initial mode
+```
+
+### Finding Your Sensor IDs
 
 ### Sensor ID Discovery
 

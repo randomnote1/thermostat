@@ -419,7 +419,7 @@ python3 tests/test_display.py
 
 ```bash
 # Copy example config
-cp config/config.example.env config.env
+nano config.env  # Edit to match your hardware
 
 # Create log file with proper permissions
 sudo touch /var/log/thermostat.log

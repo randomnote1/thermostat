@@ -8,11 +8,6 @@ venv/
 env/
 ENV/
 
-# Configuration files (contain sensitive data)
-config.env
-*.env
-!config.example.env
-
 # Database files (runtime data)
 *.db
 *.db-journal
@@ -23,8 +18,17 @@ config.env
 *.log
 logs/
 
+# Test coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
 # E-ink display test outputs
 display_test.png
+
+# Temporary debug/test files
+debug_*.py
 
 # IDE
 .vscode/
