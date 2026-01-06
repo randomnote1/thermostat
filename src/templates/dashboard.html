@@ -63,6 +63,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
+            margin-bottom: 20px;
         }
 
         .card {
@@ -70,7 +71,10 @@
             border-radius: 15px;
             padding: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
+        }
+
+        .card + .card {
+            margin-top: 20px;
         }
 
         .card h2 {
