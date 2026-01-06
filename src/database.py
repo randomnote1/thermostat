@@ -432,23 +432,41 @@ class ThermostatDatabase:
             sensor_id: Optional sensor ID to filter by
             hours: Number of hours of history to retrieve
             limit: Maximum number of records
+            
+        Returns current sensor name from sensors table via JOIN
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
             
             if sensor_id:
                 cursor.execute('''
-                    SELECT * FROM sensor_history 
-                    WHERE sensor_id = ? 
-                    AND timestamp > datetime('now', '-' || ? || ' hours')
-                    ORDER BY timestamp DESC 
+                    SELECT 
+                        sh.id,
+                        sh.sensor_id,
+                        COALESCE(s.name, sh.sensor_name) as sensor_name,
+                        sh.temperature,
+                        sh.is_compromised,
+                        sh.timestamp
+                    FROM sensor_history sh
+                    LEFT JOIN sensors s ON sh.sensor_id = s.sensor_id
+                    WHERE sh.sensor_id = ? 
+                    AND sh.timestamp > datetime('now', '-' || ? || ' hours')
+                    ORDER BY sh.timestamp DESC 
                     LIMIT ?
                 ''', (sensor_id, hours, limit))
             else:
                 cursor.execute('''
-                    SELECT * FROM sensor_history 
-                    WHERE timestamp > datetime('now', '-' || ? || ' hours')
-                    ORDER BY timestamp DESC 
+                    SELECT 
+                        sh.id,
+                        sh.sensor_id,
+                        COALESCE(s.name, sh.sensor_name) as sensor_name,
+                        sh.temperature,
+                        sh.is_compromised,
+                        sh.timestamp
+                    FROM sensor_history sh
+                    LEFT JOIN sensors s ON sh.sensor_id = s.sensor_id
+                    WHERE sh.timestamp > datetime('now', '-' || ? || ' hours')
+                    ORDER BY sh.timestamp DESC 
                     LIMIT ?
                 ''', (hours, limit))
             
