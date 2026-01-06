@@ -698,7 +698,7 @@
 
                         // For single sensor or when all sensors with std dev, remove fill to show std dev shading
                         const isSingleSensor = selectedSensor !== 'all' && Object.keys(sensorData).length === 1;
-                        const isMultiSensorWithStdDev = selectedSensor === 'all' && Object.keys(sensorData).length > 1;
+                        const isMultiSensorWithStdDev = selectedSensor === 'all';
 
                         return {
                             label: sensorName,
@@ -717,7 +717,7 @@
                     });
 
                     // Add standard deviation for all sensors (when "All Sensors" is selected)
-                    if (selectedSensor === 'all' && Object.keys(sensorData).length > 1) {
+                    if (selectedSensor === 'all') {
                         Object.keys(sensorData).forEach((sensorName, index) => {
                             const color = colors[index % colors.length];
                             const data = sensorData[sensorName];
