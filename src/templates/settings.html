@@ -397,6 +397,35 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="setting-item">
+                    <div>
+                        <label>Theme Mode</label>
+                        <div class="setting-description">Choose between light mode, dark mode, or follow system preference</div>
+                    </div>
+                    <div class="setting-control">
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="theme" value="auto" id="theme-auto">
+                                Auto (System)
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="theme" value="light" id="theme-light">
+                                Light
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="theme" value="dark" id="theme-dark">
+                                Dark
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button class="save-button" id="save-prefs-button" onclick="saveDisplayPreferences()">
+                        Save Display Preferences
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -439,7 +468,7 @@
             }, 5000);
         }
 
-        // Load current temperature units
+        // Load current temperature units and theme preferences
         async function loadUnits() {
             try {
                 const response = await fetch('/api/status');
@@ -447,6 +476,10 @@
                 const units = data.temperature_units || 'F';
                 
                 document.getElementById(`units-${units.toLowerCase()}`).checked = true;
+                
+                // Load theme preference
+                const savedTheme = localStorage.getItem('theme') || 'auto';
+                document.getElementById(`theme-${savedTheme}`).checked = true;
             } catch (error) {
                 console.error('Error loading units:', error);
             }
@@ -590,36 +623,79 @@
             return div.innerHTML;
         }
 
-        // Handle temperature units change
-        document.querySelectorAll('input[name="units"]').forEach(radio => {
-            radio.addEventListener('change', async (e) => {
-                const units = e.target.value;
-                
-                try {
-                    const response = await fetch('/api/control/units', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ units })
-                    });
-                    
-                    if (!response.ok) {
-                        const error = await response.json();
-                        throw new Error(error.error || 'Failed to update units');
-                    }
-                    
-                    showMessage(`Temperature units changed to ${units === 'F' ? 'Fahrenheit' : units === 'C' ? 'Celsius' : 'Kelvin'}`);
-                    
-                    // Reload page after short delay to show new units
-                    setTimeout(() => window.location.reload(), 1500);
-                    
-                } catch (error) {
-                    console.error('Error updating units:', error);
-                    showMessage('Error updating units: ' + error.message, true);
-                    // Reload current units
-                    loadUnits();
+        // Save display preferences (temperature units and theme)
+        async function saveDisplayPreferences() {
+            const button = document.getElementById('save-prefs-button');
+            button.disabled = true;
+            button.textContent = 'Saving...';
+            
+            try {
+                // Get selected units
+                const unitsRadio = document.querySelector('input[name="units"]:checked');
+                if (!unitsRadio) {
+                    throw new Error('Please select temperature units');
                 }
-            });
-        });
+                const units = unitsRadio.value;
+                
+                // Save temperature units to server
+                const response = await fetch('/api/control/units', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ units })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to update units');
+                }
+                
+                // Get selected theme
+                const themeRadio = document.querySelector('input[name="theme"]:checked');
+                if (!themeRadio) {
+                    throw new Error('Please select theme mode');
+                }
+                const theme = themeRadio.value;
+                
+                // Save theme to localStorage
+                localStorage.setItem('theme', theme);
+                
+                // Apply theme
+                const root = document.documentElement;
+                root.classList.remove('light-mode', 'dark-mode');
+                
+                if (theme === 'light') {
+                    root.classList.add('light-mode');
+                } else if (theme === 'dark') {
+                    root.classList.add('dark-mode');
+                } else {
+                    // Auto mode - check system preference
+                    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        root.classList.add('dark-mode');
+                    } else {
+                        root.classList.add('light-mode');
+                    }
+                }
+                
+                // Update theme toggle button icon
+                const isDark = root.classList.contains('dark-mode');
+                document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+                
+                // Trigger custom event for theme change
+                window.dispatchEvent(new CustomEvent('themechange', { detail: { theme, isDark } }));
+                
+                showMessage('Display preferences saved successfully');
+                
+                // Reload page after short delay to show new units everywhere
+                setTimeout(() => window.location.reload(), 1500);
+                
+            } catch (error) {
+                console.error('Error saving preferences:', error);
+                showMessage('Error saving preferences: ' + error.message, true);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Save Display Preferences';
+            }
+        }
 
         // Initial load
         loadUnits();
