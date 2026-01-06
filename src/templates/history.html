@@ -626,6 +626,21 @@
                             y: average
                         }));
 
+                        // Calculate standard deviation
+                        const squaredDiffs = temps.map(temp => Math.pow(temp - average, 2));
+                        const variance = squaredDiffs.reduce((a, b) => a + b, 0) / temps.length;
+                        const stdDev = Math.sqrt(variance);
+
+                        const stdDevUpperData = data.timestamps.map(timestamp => ({
+                            x: timestamp,
+                            y: average + stdDev
+                        }));
+
+                        const stdDevLowerData = data.timestamps.map(timestamp => ({
+                            x: timestamp,
+                            y: average - stdDev
+                        }));
+
                         // Calculate linear regression for trend line
                         const n = temps.length;
                         const xValues = temps.map((_, i) => i);
@@ -650,6 +665,34 @@
                             borderColor: 'rgba(234, 179, 8, 1)',
                             borderWidth: 2,
                             borderDash: [5, 5],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        });
+
+                        // Add standard deviation upper bound
+                        datasets.push({
+                            label: '+1 StdDev (±' + stdDev.toFixed(1) + '°F)',
+                            data: stdDevUpperData,
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(168, 85, 247, 0.6)',
+                            borderWidth: 1.5,
+                            borderDash: [3, 3],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        });
+
+                        // Add standard deviation lower bound
+                        datasets.push({
+                            label: '-1 StdDev',
+                            data: stdDevLowerData,
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(168, 85, 247, 0.6)',
+                            borderWidth: 1.5,
+                            borderDash: [3, 3],
                             fill: false,
                             tension: 0,
                             pointRadius: 0,
