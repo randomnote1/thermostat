@@ -711,10 +711,6 @@
                     updateScheduleStatus(data);
 
                     // Update sensors
-                    fanToggle.checked = hvacState.fan || false;
-                    document.getElementById('fan-label').textContent = hvacState.fan ? 'ON' : 'OFF';
-
-                    // Update sensors
                     updateSensors(data.sensor_readings, data.compromised_sensors);
 
                     // Update timestamp
