@@ -556,7 +556,6 @@
                 
                 // Update sensor selector
                 const sensorFilter = document.getElementById('sensor-filter');
-                const uniqueSensors = [...new Set(sensorHistoryData.map(r => r.sensor_name))];
                 const currentSelection = sensorFilter.value;
 
                 sensorFilter.innerHTML = '<option value="all">All Sensors</option>' +
