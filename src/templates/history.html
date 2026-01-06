@@ -720,6 +720,10 @@
                         const sensorName = Object.keys(sensorData)[0];
                         const data = sensorData[sensorName];
                         const temps = data.temperatures;
+                        
+                        // Get the sensor's color
+                        const sensorColor = colors[0].border;
+                        const sensorBgColor = colors[0].bg;
 
                         // Calculate average
                         const average = temps.reduce((a, b) => a + b, 0) / temps.length;
@@ -778,27 +782,29 @@
                             label: '-1 StdDev',
                             data: stdDevLowerData,
                             backgroundColor: 'transparent',
-                            borderColor: 'rgba(168, 85, 247, 0.6)',
+                            borderColor: sensorColor.replace('1)', '0.3)'),
                             borderWidth: 1.5,
                             borderDash: [3, 3],
                             fill: false,
                             tension: 0,
                             pointRadius: 0,
-                            pointHoverRadius: 0
+                            pointHoverRadius: 0,
+                            legend: {display: false}
                         });
 
                         // Add standard deviation upper bound with fill to lower bound
                         datasets.push({
-                            label: '+1 StdDev (±' + stdDev.toFixed(1) + '°F)',
+                            label: '+1 StdDev',
                             data: stdDevUpperData,
-                            backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                            borderColor: 'rgba(168, 85, 247, 0.6)',
+                            backgroundColor: sensorBgColor.replace('0.2)', '0.15)'),
+                            borderColor: sensorColor.replace('1)', '0.3)'),
                             borderWidth: 1.5,
                             borderDash: [3, 3],
                             fill: '-1',
                             tension: 0,
                             pointRadius: 0,
-                            pointHoverRadius: 0
+                            pointHoverRadius: 0,
+                            legend: {display: false}
                         });
 
                         // Add trend line dataset
@@ -821,6 +827,10 @@
                         const sensorName = Object.keys(sensorData)[0];
                         const data = sensorData[sensorName];
                         
+                        // Get the sensor's color
+                        const sensorColor = colors[0].border;
+                        const sensorBgColor = colors[0].bg;
+                        
                         if (data.stdDevs) {
                             const stdDevUpperData = data.timestamps.map((timestamp, i) => ({
                                 x: timestamp,
@@ -832,32 +842,36 @@
                                 y: data.temperatures[i] - data.stdDevs[i]
                             }));
                             
-                            // Add lower bound
+                            // Add lower bound (hidden from legend)
                             datasets.push({
-                                label: '-1 StdDev (per bucket)',
+                                label: '-1 StdDev',
                                 data: stdDevLowerData,
                                 backgroundColor: 'transparent',
-                                borderColor: 'rgba(168, 85, 247, 0.6)',
-                                borderWidth: 1.5,
+                                borderColor: sensorColor.replace('1)', '0.3)'),
+                                borderWidth: 1,
                                 borderDash: [3, 3],
                                 fill: false,
                                 tension: 0.4,
                                 pointRadius: 0,
-                                pointHoverRadius: 0
+                                pointHoverRadius: 0,
+                                hidden: false,
+                                legend: {display: false}
                             });
                             
-                            // Add upper bound with fill
+                            // Add upper bound with fill (hidden from legend)
                             datasets.push({
-                                label: '+1 StdDev (per bucket)',
+                                label: '+1 StdDev',
                                 data: stdDevUpperData,
-                                backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                                borderColor: 'rgba(168, 85, 247, 0.6)',
-                                borderWidth: 1.5,
+                                backgroundColor: sensorBgColor.replace('0.2)', '0.15)'),
+                                borderColor: sensorColor.replace('1)', '0.3)'),
+                                borderWidth: 1,
                                 borderDash: [3, 3],
                                 fill: '-1',
                                 tension: 0.4,
                                 pointRadius: 0,
-                                pointHoverRadius: 0
+                                pointHoverRadius: 0,
+                                hidden: false,
+                                legend: {display: false}
                             });
                         }
                     }
