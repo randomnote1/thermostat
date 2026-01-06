@@ -347,6 +347,14 @@
                     <select id="sensor-filter" onchange="updateSensorChart()" style="margin-left: 10px;">
                         <option value="all">All Sensors</option>
                     </select>
+                    <select id="aggregation-interval" onchange="updateSensorChart()" style="margin-left: 10px;">
+                        <option value="0">Raw Data</option>
+                        <option value="15">15 min avg</option>
+                        <option value="30">30 min avg</option>
+                        <option value="60" selected>1 hour avg</option>
+                        <option value="360">6 hour avg</option>
+                        <option value="1440">1 day avg</option>
+                    </select>
                     <span id="data-info" style="color: #718096; margin-left: 10px;"></span>
                 </div>
                 <!-- Temperature Graph -->
@@ -583,9 +591,41 @@
             }
         }
 
+            function aggregateData(timestamps, temperatures, intervalMinutes) {
+                if (intervalMinutes === 0 || timestamps.length === 0) {
+                    return { timestamps, temperatures };
+                }
+
+                const intervalMs = intervalMinutes * 60 * 1000;
+                const buckets = new Map();
+
+                // Group readings into time buckets
+                timestamps.forEach((timestamp, i) => {
+                    const bucketTime = Math.floor(timestamp.getTime() / intervalMs) * intervalMs;
+                    if (!buckets.has(bucketTime)) {
+                        buckets.set(bucketTime, []);
+                    }
+                    buckets.get(bucketTime).push(temperatures[i]);
+                });
+
+                // Calculate average for each bucket
+                const aggregatedTimestamps = [];
+                const aggregatedTemperatures = [];
+
+                Array.from(buckets.keys()).sort((a, b) => a - b).forEach(bucketTime => {
+                    const temps = buckets.get(bucketTime);
+                    const avg = temps.reduce((sum, t) => sum + t, 0) / temps.length;
+                    aggregatedTimestamps.push(new Date(bucketTime));
+                    aggregatedTemperatures.push(avg);
+                });
+
+                return { timestamps: aggregatedTimestamps, temperatures: aggregatedTemperatures };
+            }
+
                 function updateSensorChart() {
                 try {
                     const selectedSensor = document.getElementById('sensor-filter').value;
+                    const aggregationInterval = parseInt(document.getElementById('aggregation-interval').value);
                     let history = sensorHistoryData;
 
                     // Filter by selected sensor if not "all"
@@ -612,6 +652,17 @@
                         sensorData[sensorName].timestamps.push(new Date(record.timestamp));
                         sensorData[sensorName].temperatures.push(record.temperature);
                         sensorData[sensorName].compromised.push(record.is_compromised);
+                    });
+
+                    // Apply aggregation to each sensor's data
+                    Object.keys(sensorData).forEach(sensorName => {
+                        const aggregated = aggregateData(
+                            sensorData[sensorName].timestamps,
+                            sensorData[sensorName].temperatures,
+                            aggregationInterval
+                        );
+                        sensorData[sensorName].timestamps = aggregated.timestamps;
+                        sensorData[sensorName].temperatures = aggregated.temperatures;
                     });
 
                     // Create datasets for each sensor
