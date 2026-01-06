@@ -340,11 +340,14 @@
                         <option value="12">Last 12 hours</option>
                         <option value="24" selected>Last 24 hours</option>
                         <option value="72">Last 3 days</option>
+                        <option value="168">Last 7 days</option>
+                        <option value="336">Last 14 days</option>
+                        <option value="720">Last 30 days</option>
                     </select>
                     <select id="sensor-filter" onchange="updateSensorChart()" style="margin-left: 10px;">
                         <option value="all">All Sensors</option>
                     </select>
-                    <span style="color: #718096; margin-left: 10px;">Showing latest 100 readings per sensor</span>
+                    <span id="data-info" style="color: #718096; margin-left: 10px;"></span>
                 </div>
                 <!-- Temperature Graph -->
                 <div class="chart-container">
@@ -504,12 +507,32 @@
                 let sensorHistoryData = [];
 
         async function loadSensorHistory() {
-            const hours = document.getElementById('sensor-hours').value;
+            const hours = parseInt(document.getElementById('sensor-hours').value);
+
+            // Adjust limit based on time range to get reasonable data points
+            let limit;
+            if (hours <= 24) {
+                limit = 200;  // ~8 points per hour
+            } else if (hours <= 72) {
+                limit = 300;  // ~4 points per hour
+            } else if (hours <= 168) {
+                limit = 500;  // ~3 points per hour
+            } else if (hours <= 336) {
+                limit = 700;  // ~2 points per hour
+            } else {
+                limit = 1000; // ~1.4 points per hour for 30 days
+            }
             
             try {
-                const response = await fetch(`/api/history/sensors?hours=${hours}&limit=100`);
+                const response = await fetch(`/api/history/sensors?hours=${hours}&limit=${limit}`);
                 const data = await response.json();
                 sensorHistoryData = data.history || [];
+                
+                // Update data info
+                const dataInfo = document.getElementById('data-info');
+                const uniqueSensors = [...new Set(sensorHistoryData.map(r => r.sensor_name))];
+                const pointsPerSensor = Math.floor(sensorHistoryData.length / (uniqueSensors.length || 1));
+                dataInfo.textContent = `Showing ${sensorHistoryData.length} readings (${pointsPerSensor} per sensor)`;
                 
                 const tbody = document.getElementById('sensor-history');
                 
