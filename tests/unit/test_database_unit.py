@@ -695,5 +695,158 @@ class TestSensorCRUD(unittest.TestCase):
         self.assertNotEqual(sensor['updated_at'], updated_sensor['updated_at'])
 
 
+class TestDatabaseErrorHandling(unittest.TestCase):
+    """Test database error handling and edge cases"""
+    
+    def setUp(self):
+        """Create a temporary database for each test"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db_path = self.temp_db.name
+        self.db = ThermostatDatabase(self.db_path)
+    
+    def tearDown(self):
+        """Clean up temporary database"""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+    
+    def test_connection_context_manager_rollback(self):
+        """Test that connection context manager rolls back on error"""
+        try:
+            with self.db._get_connection() as conn:
+                cursor = conn.cursor()
+                # Insert valid data
+                cursor.execute(
+                    "INSERT INTO settings (target_temp_heat, target_temp_cool, hvac_mode) VALUES (?, ?, ?)",
+                    (20.0, 24.0, 'heat')
+                )
+                # Now cause an error
+                cursor.execute("INSERT INTO nonexistent_table VALUES (1)")
+        except Exception:
+            pass  # Expected to fail
+        
+        # Verify the first insert was rolled back
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM settings")
+            count = cursor.fetchone()[0]
+            self.assertEqual(count, 0)
+    
+    def test_load_settings_empty_table(self):
+        """Test loading settings when table is empty"""
+        settings = self.db.load_settings()
+        self.assertIsNone(settings)
+    
+    def test_get_active_schedules_various_times(self):
+        """Test getting active schedules at different times"""
+        # Add a schedule for 08:00 on weekdays and enable it
+        schedule_id = self.db.create_schedule("Morning", "1,2,3,4,5", "08:00", 20.0, None, "heat")
+        self.db.update_schedule(schedule_id, enabled=True)
+        
+        # Test with datetime - schedules are disabled by default in schema
+        # Since we enabled it, let's verify it works
+        schedules_all = self.db.get_schedules(enabled_only=False)
+        self.assertGreater(len(schedules_all), 0)
+        
+        enabled_schedules = self.db.get_schedules(enabled_only=True)
+        self.assertGreater(len(enabled_schedules), 0)
+    
+    def test_cleanup_with_no_old_data(self):
+        """Test cleanup when there is no old data"""
+        # Add recent sensor data
+        self.db.log_sensor_reading('sensor1', 'Room', 22.0, False)
+        
+        # Cleanup data older than 30 days
+        self.db.cleanup_old_history(days_to_keep=30)
+        
+        # Verify recent data is still there
+        history = self.db.get_sensor_history(hours=1)
+        self.assertEqual(len(history), 1)
+    
+    def test_get_database_stats_empty(self):
+        """Test database stats with empty database"""
+        stats = self.db.get_database_stats()
+        
+        self.assertEqual(stats['sensor_history_count'], 0)
+        self.assertEqual(stats['hvac_history_count'], 0)
+        self.assertEqual(stats['setting_history_count'], 0)
+        self.assertIn('db_size_mb', stats)
+        self.assertGreater(stats['db_size_mb'], 0)  # File exists even if empty
+
+
+class TestScheduleEdgeCases(unittest.TestCase):
+    """Test schedule edge cases and special scenarios"""
+    
+    def setUp(self):
+        """Create a temporary database for each test"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db_path = self.temp_db.name
+        self.db = ThermostatDatabase(self.db_path)
+    
+    def tearDown(self):
+        """Clean up temporary database"""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+    
+    def test_schedule_with_all_days(self):
+        """Test schedule that runs every day"""
+        schedule_id = self.db.create_schedule(
+            "Everyday", "0,1,2,3,4,5,6", "12:00", 21.0, None, "heat"
+        )
+        self.assertIsNotNone(schedule_id)
+        # Enable the schedule
+        self.db.update_schedule(schedule_id, enabled=True)
+        
+        # Verify schedule exists and is enabled
+        schedules = self.db.get_schedules(enabled_only=True)
+        self.assertGreater(len(schedules), 0)
+        schedule = next((s for s in schedules if s['id'] == schedule_id), None)
+        self.assertIsNotNone(schedule)
+        self.assertEqual(schedule['days_of_week'], "0,1,2,3,4,5,6")
+    
+    def test_schedule_update_all_fields(self):
+        """Test updating all schedule fields"""
+        schedule_id = self.db.create_schedule(
+            "Original", "1,2,3", "08:00", 20.0, None, "heat"
+        )
+        
+        self.db.update_schedule(
+            schedule_id,
+            name="Updated",
+            days_of_week="4,5,6",
+            time="18:00",
+            target_temp_heat=22.0,
+            target_temp_cool=25.0,
+            hvac_mode="auto",
+            enabled=False
+        )
+        
+        # Verify schedule was updated
+        schedules = self.db.get_schedules()
+        schedule = next((s for s in schedules if s['id'] == schedule_id), None)
+        self.assertIsNotNone(schedule)
+        self.assertEqual(schedule['name'], "Updated")
+        self.assertEqual(schedule['days_of_week'], "4,5,6")
+        self.assertEqual(schedule['time'], "18:00")
+        self.assertAlmostEqual(schedule['target_temp_heat'], 22.0, places=1)
+        self.assertAlmostEqual(schedule['target_temp_cool'], 25.0, places=1)
+        self.assertEqual(schedule['hvac_mode'], "auto")
+        self.assertEqual(schedule['enabled'], 0)  # SQLite stores bool as 0/1
+    
+    def test_multiple_schedules_same_time(self):
+        """Test multiple schedules at the same time"""
+        id1 = self.db.create_schedule("Schedule1", "1", "08:00", 20.0, None, "heat")
+        id2 = self.db.create_schedule("Schedule2", "1", "08:00", 21.0, None, "heat")
+        
+        # Verify both schedules exist
+        schedules = self.db.get_schedules()
+        self.assertGreaterEqual(len(schedules), 2)
+        
+        schedule_ids = [s['id'] for s in schedules]
+        self.assertIn(id1, schedule_ids)
+        self.assertIn(id2, schedule_ids)
+
+
 if __name__ == '__main__':
     unittest.main()

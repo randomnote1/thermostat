@@ -363,6 +363,79 @@ class TestHistoryEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
 
 
+class TestAPIEndpoints(unittest.TestCase):
+    """Test additional API endpoints"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Set up database
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        from database import ThermostatDatabase
+        self.db = ThermostatDatabase(self.temp_db.name)
+        set_database(self.db)
+        
+        # Set default settings
+        self.db.save_settings(
+            target_temp_heat=20.0,
+            target_temp_cool=23.33,
+            hvac_mode='heat',
+            fan_mode='auto',
+            temperature_units='F'
+        )
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_api_hvac_endpoint(self):
+        """Test HVAC API endpoint"""
+        update_state({
+            'hvac_mode': 'heat',
+            'hvac_state': {'heat': True, 'cool': False, 'fan': True, 'heat2': False},
+            'target_temp_heat': 20.0,
+            'target_temp_cool': 23.33,
+            'system_temp': 21.0
+        })
+        
+        response = self.client.get('/api/hvac')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertEqual(data['mode'], 'heat')
+        self.assertIn('state', data)
+        self.assertIn('target_heat', data)
+    
+    def test_control_units_endpoint(self):
+        """Test changing temperature units"""
+        response = self.client.post('/api/control/units',
+                                   json={'units': 'C'})
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['units'], 'C')
+    
+    def test_control_units_invalid(self):
+        """Test invalid temperature units"""
+        response = self.client.post('/api/control/units',
+                                   json={'units': 'X'})
+        self.assertEqual(response.status_code, 400)
+    
+    def test_control_units_without_database(self):
+        """Test units endpoint without database"""
+        set_database(None)
+        
+        response = self.client.post('/api/control/units',
+                                   json={'units': 'C'})
+        self.assertEqual(response.status_code, 503)
+
+
 class TestErrorHandling(unittest.TestCase):
     """Test error handling in web interface"""
     
