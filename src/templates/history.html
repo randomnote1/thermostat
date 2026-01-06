@@ -593,7 +593,7 @@
 
             function aggregateData(timestamps, temperatures, intervalMinutes) {
                 if (intervalMinutes === 0 || timestamps.length === 0) {
-                    return { timestamps, temperatures };
+                    return { timestamps, temperatures, stdDevs: null };
                 }
 
                 const intervalMs = intervalMinutes * 60 * 1000;
@@ -608,18 +608,32 @@
                     buckets.get(bucketTime).push(temperatures[i]);
                 });
 
-                // Calculate average for each bucket
+                // Calculate average and standard deviation for each bucket
                 const aggregatedTimestamps = [];
                 const aggregatedTemperatures = [];
+                const aggregatedStdDevs = [];
 
                 Array.from(buckets.keys()).sort((a, b) => a - b).forEach(bucketTime => {
                     const temps = buckets.get(bucketTime);
                     const avg = temps.reduce((sum, t) => sum + t, 0) / temps.length;
+                    
+                    // Calculate standard deviation for this bucket
+                    let stdDev = 0;
+                    if (temps.length > 1) {
+                        const squaredDiffs = temps.map(t => Math.pow(t - avg, 2));
+                        const variance = squaredDiffs.reduce((sum, sq) => sum + sq, 0) / temps.length;
+                        stdDev = Math.sqrt(variance);
+                    }
+                    
                     aggregatedTimestamps.push(new Date(bucketTime));
                     aggregatedTemperatures.push(avg);
+                    aggregatedStdDevs.push(stdDev);
                 });
 
-                return { timestamps: aggregatedTimestamps, temperatures: aggregatedTemperatures };
+                ret       timestamps: aggregatedTimestamps, 
+                    temperatures: aggregatedTemperatures,
+                    stdDevs: aggregatedStdDevs
+                };
             }
 
                 function updateSensorChart() {
@@ -646,7 +660,8 @@
                             sensorData[sensorName] = {
                                 timestamps: [],
                                 temperatures: [],
-                                compromised: []
+                                compromised: [],
+                                stdDevs: null
                             };
                         }
                         sensorData[sensorName].timestamps.push(new Date(record.timestamp));
@@ -663,6 +678,7 @@
                         );
                         sensorData[sensorName].timestamps = aggregated.timestamps;
                         sensorData[sensorName].temperatures = aggregated.temperatures;
+                        sensorData[sensorName].stdDevs = aggregated.stdDevs;
                     });
 
                     // Create datasets for each sensor
@@ -698,8 +714,8 @@
                         };
                     });
 
-                    // Add average and trend line if single sensor is selected
-                    if (selectedSensor !== 'all' && Object.keys(sensorData).length === 1) {
+                    // Add average and trend line if single sensor is selected AND not aggregated
+                    if (selectedSensor !== 'all' && Object.keys(sensorData).length === 1 && aggregationInterval === 0) {
                         const sensorName = Object.keys(sensorData)[0];
                         const data = sensorData[sensorName];
                         const temps = data.temperatures;
@@ -797,6 +813,48 @@
                             pointRadius: 0,
                             pointHoverRadius: 0
                         });
+                    }
+                    
+                    // Add per-bucket standard deviation for aggregated single sensor data
+                    if (selectedSensor !== 'all' && Object.keys(sensorData).length === 1 && aggregationInterval > 0) {
+                        const sensorName = Object.keys(sensorData)[0];
+                        const data = sensorData[sensorName];
+                        
+                        if (data.stdDevs) {
+                            const stdDevUpperData = data.timestamps.map((timestamp, i) => ({
+                                x: timestamp,
+                                y: data.temperatures[i] + data.stdDevs[i]
+                                         
+                            const stdDevLowerData = data.timestamps.map((timestamp, i) => ({
+                                x: timestamp,
+                                y: data.temperatures[i] - data.stdDevs[i]
+                            }));
+                            
+                            // Add lower bound
+    datasets.push({
+                                label: '-1 StdDev (per bucket)',
+                                data: stdDevLowerData,
+                                backgroundColor: 'transparent',
+                                borderColor: 'rgba(168, 85, 247, 0.6)',
+                 1.5,
+                                borderDash: [3, 3],
+                                fill: false,
+                                tension: 0.4,
+                                pointRadius: 0,
+                                pointHoverRadius:   });
+                            
+                            // Add upper bound with fill
+                            datasets.push({
+                                label: '+1 StdDev (per bucket)',
+                                data: stdDevUpperData,
+                                backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                                borderColor: 'rgba(168, 85, 247, 0.6)',
+                                borderWidth: 1.5,
+                                borderDash: [3, 3],
+                                fill: '-1',
+                                tension: 0.4,
+                                pointRadius: 0,
+                                                                        }
                     }
 
                     // Destroy existing chart if it exists
