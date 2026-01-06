@@ -32,12 +32,21 @@
             align-items: center;
             gap: 10px;
             font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .setting-item > div > label {
+            font-weight: 600;
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 5px;
         }
 
         .setting-description {
             font-size: 0.9em;
             color: var(--text-secondary);
             margin-top: 5px;
+            line-height: 1.4;
         }
 
         .setting-control {
@@ -69,6 +78,7 @@
             font-family: monospace;
             font-size: 0.85em;
             color: var(--text-secondary);
+            margin-top: 4px;
         }
 
         .sensor-controls {
@@ -214,6 +224,10 @@
                 background: #1f2937;
             }
 
+            :root:not(.light-mode) .setting-item > div > label {
+                color: #f3f4f6;
+            }
+
             :root:not(.light-mode) .sensor-control-row label,
             :root:not(.light-mode) .setting-item label {
                 color: #e2e8f0;
@@ -223,6 +237,18 @@
                 background: #374151;
                 border: 1px solid #4b5563;
                 color: #e2e8f0;
+            }
+
+            :root:not(.light-mode) .sensor-id {
+                color: #9ca3af;
+            }
+
+            :root:not(.light-mode) .setting-description {
+                color: #cbd5e0;
+            }
+
+            :root:not(.light-mode) .sensor-header strong {
+                color: #f3f4f6;
             }
 
             :root:not(.light-mode) .success-message {
@@ -253,6 +279,10 @@
             background: #1f2937;
         }
 
+        :root.dark-mode .setting-item > div > label {
+            color: #f3f4f6;
+        }
+
         :root.dark-mode .sensor-control-row label,
         :root.dark-mode .setting-item label {
             color: #e2e8f0;
@@ -262,6 +292,18 @@
             background: #374151;
             border: 1px solid #4b5563;
             color: #e2e8f0;
+        }
+
+        :root.dark-mode .sensor-id {
+            color: #9ca3af;
+        }
+
+        :root.dark-mode .setting-description {
+            color: #cbd5e0;
+        }
+
+        :root.dark-mode .sensor-header strong {
+            color: #f3f4f6;
         }
 
         :root.dark-mode .success-message {
@@ -373,41 +415,6 @@
                     <!-- Sensors will be loaded here dynamically -->
                     <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
                         Loading sensors...
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- System Information Section -->
-        <section class="settings-section">
-            <div class="card">
-                <h2>System Information</h2>
-                
-                <div class="setting-item">
-                    <div>
-                        <label>Database Path</label>
-                        <div class="setting-description" id="db-path">Loading...</div>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <div>
-                        <label>Database Size</label>
-                        <div class="setting-description" id="db-size">Loading...</div>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <div>
-                        <label>Sensor Readings Logged</label>
-                        <div class="setting-description" id="sensor-count">Loading...</div>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <div>
-                        <label>HVAC Events Logged</label>
-                        <div class="setting-description" id="hvac-count">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -576,30 +583,6 @@
             }
         }
 
-        // Load database statistics
-        async function loadDatabaseStats() {
-            try {
-                const response = await fetch('/api/database/stats');
-                const stats = await response.json();
-                
-                document.getElementById('db-path').textContent = stats.database_path || 'Unknown';
-                document.getElementById('db-size').textContent = formatBytes(stats.database_size_bytes || 0);
-                document.getElementById('sensor-count').textContent = (stats.sensor_history_count || 0).toLocaleString();
-                document.getElementById('hvac-count').textContent = (stats.hvac_history_count || 0).toLocaleString();
-            } catch (error) {
-                console.error('Error loading database stats:', error);
-            }
-        }
-
-        // Format bytes to human-readable size
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
         // Escape HTML to prevent XSS
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -641,11 +624,9 @@
         // Initial load
         loadUnits();
         loadSensors();
-        loadDatabaseStats();
 
         // Refresh sensors periodically
         setInterval(loadSensors, 30000); // Every 30 seconds
-        setInterval(loadDatabaseStats, 60000); // Every minute
     </script>
 </body>
 </html>
