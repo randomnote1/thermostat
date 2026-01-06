@@ -26,6 +26,9 @@ try:
         print(f"  Manual C→F: {manual_f:.2f}°F")
         print(f"  Difference: {abs(temp_f - manual_f):.4f}°F")
         
-except ImportError:
-    print("w1thermsensor not available (development machine)")
-    print("Run this script on the Raspberry Pi")
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("\nMake sure w1thermsensor is installed:")
+    print("  pip3 install w1thermsensor")
+except Exception as e:
+    print(f"Error: {e}")
