@@ -413,6 +413,9 @@
         async function loadDatabaseStats() {
             try {
                 const response = await fetch('/api/database/stats');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const stats = await response.json();
                 
                 const statsGrid = document.getElementById('stats-grid');
@@ -440,6 +443,12 @@
                 `;
             } catch (error) {
                 console.error('Failed to load stats:', error);
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `<div style="text-align: center; color: #e53e3e; padding: 20px;">
+                    <strong>Error loading statistics</strong><br>
+                    ${error.message}<br>
+                    <small>Check console for details</small>
+                </div>`;
             }
         }
 
