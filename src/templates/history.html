@@ -40,7 +40,7 @@
                 --text-primary: #e2e8f0;
                 --text-secondary: #cbd5e0;
                 --text-tertiary: #a0aec0;
-                --accent-color: #7c3aed;
+                --accent-color: #a78bfa;
                 --border-color: #4a5568;
                 --table-header-bg: #374151;
                 --table-row-hover: #374151;
@@ -215,7 +215,7 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: #718096;
+            color: var(--text-tertiary);
         }
 
         .tabs {
@@ -230,14 +230,14 @@
         .tab-button {
             flex: 1;
             padding: 15px 20px;
-            background: white;
+            background: var(--card-bg);
             border: none;
             cursor: pointer;
             font-size: 1em;
             font-weight: 600;
-            color: #718096;
+            color: var(--text-tertiary);
             transition: all 0.3s;
-            border-right: 1px solid #e2e8f0;
+            border-right: 1px solid var(--border-color);
         }
 
         .tab-button:last-child {
@@ -245,11 +245,11 @@
         }
 
         .tab-button:hover {
-            background: #f7fafc;
+            background: var(--input-bg);
         }
 
         .tab-button.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             color: white;
         }
 
@@ -265,7 +265,7 @@
             position: relative;
             height: 400px;
             margin-bottom: 30px;
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 20px;
         }
@@ -1052,6 +1052,12 @@
 
                     // Create new chart
                     const ctx = document.getElementById('sensorChart').getContext('2d');
+
+                    // Detect dark mode for chart colors
+                    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    const textColor = isDarkMode ? '#e2e8f0' : '#2d3748';
+                    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+                    
                     sensorChart = new Chart(ctx, {
                         type: 'line',
                         data: { datasets: datasets },
@@ -1065,6 +1071,7 @@
                                         font: { size: 12 },
                                         padding: 15,
                                         usePointStyle: true,
+                                        color: textColor,
                                         filter: function(legendItem, chartData) { return !legendItem.text.includes('StdDev'); }
                                     }
                                 },
@@ -1093,24 +1100,30 @@
                                     title: {
                                         display: true,
                                         text: 'Time',
-                                        font: { size: 14, weight: 'bold' }
+                                        font: { size: 14, weight: 'bold' },
+                                        color: textColor
                                     },
                                     grid: {
                                         display: true,
-                                        color: 'rgba(0, 0, 0, 0.05)'
+                                        color: gridColor
+                                    },
+                                    ticks: {
+                                        color: textColor
                                     }
                                 },
                                 y: {
                                     title: {
                                         display: true,
                                         text: 'Temperature (°F)',
-                                        font: { size: 14, weight: 'bold' }
+                                        font: { size: 14, weight: 'bold' },
+                                        color: textColor
                                     },
                                     grid: {
                                         display: true,
-                                        color: 'rgba(0, 0, 0, 0.05)'
+                                        color: gridColor
                                     },
                                     ticks: {
+                                        color: textColor,
                                         callback: function (value) {
                                             return value.toFixed(0) + '°F';
                                         }
