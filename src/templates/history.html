@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thermostat History</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -534,131 +536,135 @@
         }
 
             function updateSensorChart(history) {
-                // Group data by sensor
-                const sensorData = {};
+                try {
+                    // Group data by sensor
+                    const sensorData = {};
 
-                history.forEach(record => {
-                    const sensorName = record.sensor_name;
-                    if (!sensorData[sensorName]) {
-                        sensorData[sensorName] = {
-                            timestamps: [],
-                            temperatures: [],
-                            compromised: []
-                        };
-                    }
-                    sensorData[sensorName].timestamps.push(new Date(record.timestamp));
-                    sensorData[sensorName].temperatures.push(record.temperature);
-                    sensorData[sensorName].compromised.push(record.is_compromised);
-                });
-
-                // Create datasets for each sensor
-                const colors = [
-                    { bg: 'rgba(102, 126, 234, 0.2)', border: 'rgba(102, 126, 234, 1)' },
-                    { bg: 'rgba(237, 100, 166, 0.2)', border: 'rgba(237, 100, 166, 1)' },
-                    { bg: 'rgba(72, 187, 120, 0.2)', border: 'rgba(72, 187, 120, 1)' },
-                    { bg: 'rgba(251, 146, 60, 0.2)', border: 'rgba(251, 146, 60, 1)' },
-                    { bg: 'rgba(236, 72, 153, 0.2)', border: 'rgba(236, 72, 153, 1)' },
-                    { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 1)' }
-                ];
-
-                const datasets = Object.keys(sensorData).map((sensorName, index) => {
-                    const color = colors[index % colors.length];
-                    const data = sensorData[sensorName];
-
-                    return {
-                        label: sensorName,
-                        data: data.timestamps.map((timestamp, i) => ({
-                            x: timestamp,
-                            y: data.temperatures[i]
-                        })),
-                        backgroundColor: color.bg,
-                        borderColor: color.border,
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    };
-                });
-
-                // Destroy existing chart if it exists
-                if (sensorChart) {
-                    sensorChart.destroy();
-                }
-
-                // Create new chart
-                const ctx = document.getElementById('sensorChart').getContext('2d');
-                sensorChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { datasets: datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    font: { size: 12 },
-                                    padding: 15,
-                                    usePointStyle: true
-                                }
-                            },
-                            title: {
-                                display: false
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false,
-                                callbacks: {
-                                    label: function (context) {
-                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '°F';
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'hour',
-                                    displayFormats: {
-                                        hour: 'MMM d, HH:mm'
-                                    }
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Time',
-                                    font: { size: 14, weight: 'bold' }
-                                },
-                                grid: {
-                                    display: true,
-                                    color: 'rgba(0, 0, 0, 0.05)'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Temperature (°F)',
-                                    font: { size: 14, weight: 'bold' }
-                                },
-                                grid: {
-                                    display: true,
-                                    color: 'rgba(0, 0, 0, 0.05)'
-                                },
-                                ticks: {
-                                    callback: function (value) {
-                                        return value.toFixed(0) + '°F';
-                                    }
-                                }
-                            }
-                        },
-                        interaction: {
-                            mode: 'nearest',
-                            axis: 'x',
-                            intersect: false
+                    history.forEach(record => {
+                        const sensorName = record.sensor_name;
+                        if (!sensorData[sensorName]) {
+                            sensorData[sensorName] = {
+                                timestamps: [],
+                                temperatures: [],
+                                compromised: []
+                            };
                         }
+                        sensorData[sensorName].timestamps.push(new Date(record.timestamp));
+                        sensorData[sensorName].temperatures.push(record.temperature);
+                        sensorData[sensorName].compromised.push(record.is_compromised);
+                    });
+
+                    // Create datasets for each sensor
+                    const colors = [
+                        { bg: 'rgba(102, 126, 234, 0.2)', border: 'rgba(102, 126, 234, 1)' },
+                        { bg: 'rgba(237, 100, 166, 0.2)', border: 'rgba(237, 100, 166, 1)' },
+                        { bg: 'rgba(72, 187, 120, 0.2)', border: 'rgba(72, 187, 120, 1)' },
+                        { bg: 'rgba(251, 146, 60, 0.2)', border: 'rgba(251, 146, 60, 1)' },
+                        { bg: 'rgba(236, 72, 153, 0.2)', border: 'rgba(236, 72, 153, 1)' },
+                        { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 1)' }
+                    ];
+
+                    const datasets = Object.keys(sensorData).map((sensorName, index) => {
+                        const color = colors[index % colors.length];
+                        const data = sensorData[sensorName];
+
+                        return {
+                            label: sensorName,
+                            data: data.timestamps.map((timestamp, i) => ({
+                                x: timestamp,
+                                y: data.temperatures[i]
+                            })),
+                            backgroundColor: color.bg,
+                            borderColor: color.border,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        };
+                    });
+
+                    // Destroy existing chart if it exists
+                    if (sensorChart) {
+                        sensorChart.destroy();
                     }
-                });
+
+                    // Create new chart
+                    const ctx = document.getElementById('sensorChart').getContext('2d');
+                    sensorChart = new Chart(ctx, {
+                        type: 'line',
+                        data: { datasets: datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: {
+                                        font: { size: 12 },
+                                        padding: 15,
+                                        usePointStyle: true
+                                    }
+                                },
+                                title: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        label: function (context) {
+                                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '°F';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'hour',
+                                        displayFormats: {
+                                            hour: 'MMM d, HH:mm'
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Time',
+                                        font: { size: 14, weight: 'bold' }
+                                    },
+                                    grid: {
+                                        display: true,
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Temperature (°F)',
+                                        font: { size: 14, weight: 'bold' }
+                                    },
+                                    grid: {
+                                        display: true,
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    },
+                                    ticks: {
+                                        callback: function (value) {
+                                            return value.toFixed(0) + '°F';
+                                        }
+                                    }
+                                }
+                            },
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'x',
+                                intersect: false
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error creating sensor chart:', error);
+                }
             }
 
         // Load all data on page load
