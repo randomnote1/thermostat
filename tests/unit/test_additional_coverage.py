@@ -47,14 +47,14 @@ class TestSensorReadingPaths(unittest.TestCase):
             with patch('thermostat.W1ThermSensor', None):
                 controller = ThermostatController()
                 
-                # Should return mock data
+                # Should return mock data in Celsius
                 readings = controller.read_sensors()
                 
                 self.assertGreater(len(readings), 0)
                 for reading in readings:
                     self.assertIsInstance(reading, SensorReading)
-                    self.assertGreater(reading.temperature, 60)
-                    self.assertLess(reading.temperature, 80)
+                    self.assertGreater(reading.temperature, 15)  # > 15°C
+                    self.assertLess(reading.temperature, 30)   # < 30°C
     
     def test_read_sensors_with_exception(self):
         """Test sensor reading handles exceptions"""

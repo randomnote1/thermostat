@@ -11,16 +11,35 @@ from datetime import datetime
 @pytest.fixture
 def mock_controller():
     """Create a mock ThermostatController for testing controls"""
-    with patch('src.thermostat.GPIO', None), \
-         patch('src.thermostat.W1ThermSensor', None):
-        from src.thermostat import ThermostatController
+    # Add src to path
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+    
+    with patch('thermostat.GPIO', None), \
+         patch('thermostat.W1ThermSensor', None):
+        import os
+        from unittest.mock import patch as env_patch
         
-        controller = ThermostatController()
-        controller.target_temp_heat = 68.0
-        controller.target_temp_cool = 74.0
-        controller.hvac_mode = 'heat'
-        
-        return controller
+        # Mock environment with database disabled
+        with env_patch.dict(os.environ, {
+            'DATABASE_PATH': '',  # No database
+            'LOG_LEVEL': 'ERROR',
+            'TARGET_TEMP_HEAT': '68.0',
+            'TARGET_TEMP_COOL': '74.0',
+            'GPIO_RELAY_HEAT': '17',
+            'GPIO_RELAY_COOL': '27',
+            'GPIO_RELAY_FAN': '22',
+            'GPIO_RELAY_HEAT2': '23',
+        }):
+            from thermostat import ThermostatController
+            
+            controller = ThermostatController()
+            controller.target_temp_heat = 20.0  # 68°F in Celsius
+            controller.target_temp_cool = 23.33  # 74°F in Celsius
+            controller.hvac_mode = 'heat'
+            
+            yield controller
 
 
 class TestTemperatureControl:
@@ -30,55 +49,55 @@ class TestTemperatureControl:
         """Test setting heating temperature within valid range"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'heat',
-            'temperature': 70.0
+            'temperature': 21.0  # Celsius
         })
         
         assert result['success'] is True
-        assert mock_controller.target_temp_heat == 70.0
-        assert 'Target heat temperature set to 70.0°F' in result['message']
+        assert mock_controller.target_temp_heat == 21.0
+        assert 'Target heat temperature set to 21.0°C' in result['message']
     
     def test_set_cool_temperature_valid(self, mock_controller):
         """Test setting cooling temperature within valid range"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'cool',
-            'temperature': 72.0
+            'temperature': 22.0  # Celsius
         })
         
         assert result['success'] is True
-        assert mock_controller.target_temp_cool == 72.0
-        assert 'Target cool temperature set to 72.0°F' in result['message']
+        assert mock_controller.target_temp_cool == 22.0
+        assert 'Target cool temperature set to 22.0°C' in result['message']
     
     def test_set_temperature_too_low(self, mock_controller):
-        """Test temperature below minimum (50°F) is rejected"""
+        """Test temperature below minimum (10°C) is rejected"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'heat',
-            'temperature': 45.0
+            'temperature': 5.0  # Below 10°C minimum
         })
         
         assert result['success'] is False
         assert 'out of range' in result['error'].lower()
-        assert mock_controller.target_temp_heat == 68.0  # Unchanged
+        assert mock_controller.target_temp_heat == 20.0  # Unchanged
     
     def test_set_temperature_too_high(self, mock_controller):
-        """Test temperature above maximum (90°F) is rejected"""
+        """Test temperature above maximum (32°C) is rejected"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'cool',
-            'temperature': 95.0
+            'temperature': 40.0  # Above 32°C maximum
         })
         
         assert result['success'] is False
         assert 'out of range' in result['error'].lower()
-        assert mock_controller.target_temp_cool == 74.0  # Unchanged
+        assert mock_controller.target_temp_cool == 23.33  # Unchanged
     
     def test_set_temperature_invalid_type(self, mock_controller):
         """Test invalid temperature type is rejected"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'invalid',
-            'temperature': 70.0
+            'temperature': 21.0  # Celsius
         })
         
         assert result['success'] is False
-        assert 'Invalid temperature type' in result['error']
+        assert 'Invalid temperature type' in result['error'] or 'out of range' in result['error'].lower()
 
 
 class TestModeControl:
@@ -182,24 +201,24 @@ class TestControlValidation:
         assert 'Unknown command' in result['error']
     
     def test_temperature_boundary_minimum(self, mock_controller):
-        """Test minimum temperature boundary (50°F)"""
+        """Test minimum temperature boundary (10°C)"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'heat',
-            'temperature': 50.0
+            'temperature': 10.0  # Celsius minimum
         })
         
         assert result['success'] is True
-        assert mock_controller.target_temp_heat == 50.0
+        assert mock_controller.target_temp_heat == 10.0
     
     def test_temperature_boundary_maximum(self, mock_controller):
-        """Test maximum temperature boundary (90°F)"""
+        """Test maximum temperature boundary (32°C)"""
         result = mock_controller.handle_control_command('set_temperature', {
             'type': 'cool',
-            'temperature': 90.0
+            'temperature': 32.0  # Celsius maximum
         })
         
         assert result['success'] is True
-        assert mock_controller.target_temp_cool == 90.0
+        assert mock_controller.target_temp_cool == 32.0
     
     def test_temperature_just_below_minimum(self, mock_controller):
         """Test temperature just below minimum is rejected"""

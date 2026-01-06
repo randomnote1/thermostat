@@ -344,7 +344,7 @@ class TestDatabaseIntegration(unittest.TestCase):
     def test_controller_without_database(self):
         """Test controller works without database"""
         env_patcher = patch.dict(os.environ, {
-            'TARGET_TEMP_HEAT': '68.0',
+            'TARGET_TEMP_HEAT': '68.0',  # Config in Fahrenheit, stored as Celsius
             'TARGET_TEMP_COOL': '74.0',
             'DATABASE_PATH': '',  # No database
             'LOG_LEVEL': 'ERROR',
@@ -358,9 +358,9 @@ class TestDatabaseIntegration(unittest.TestCase):
             with patch('thermostat.GPIO', None):
                 controller = ThermostatController()
         
-        # Should use env defaults
-        self.assertEqual(controller.target_temp_heat, 68.0)
-        self.assertEqual(controller.target_temp_cool, 74.0)
+        # Should use env defaults (converted to Celsius)
+        self.assertAlmostEqual(controller.target_temp_heat, 20.0, places=1)  # 68°F = 20°C
+        self.assertAlmostEqual(controller.target_temp_cool, 23.33, places=1)  # 74°F = 23.33°C
         self.assertIsNone(controller.db)
 
 
@@ -399,7 +399,7 @@ class TestWebControlWithScheduleHold(unittest.TestCase):
         """Test setting temperature via web triggers schedule hold"""
         result = self.controller.handle_control_command(
             'set_temperature',
-            {'type': 'heat', 'temperature': 72}
+            {'type': 'heat', 'temperature': 22}  # Celsius
         )
         
         self.assertTrue(result['success'])

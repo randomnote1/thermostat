@@ -55,14 +55,18 @@ class TestAPIStatus(unittest.TestCase):
         """Set up test client"""
         app.config['TESTING'] = True
         self.client = app.test_client()
+        
+        # Reset web interface state to avoid database issues
+        import web_interface
+        web_interface.database = None
     
     def test_status_endpoint(self):
-        """Test /api/status returns current state"""
-        # Update state first
+        """Test /api/status returns current state (converted to Fahrenheit for display)"""
+        # Update state first (temperatures in Celsius internally)
         update_state({
-            'system_temp': 72.5,
-            'target_temp_heat': 68.0,
-            'target_temp_cool': 74.0,
+            'system_temp': 22.5,  # Celsius
+            'target_temp_heat': 20.0,  # Celsius
+            'target_temp_cool': 23.33,  # Celsius
             'hvac_mode': 'heat',
             'hvac_state': {'heat': True, 'cool': False, 'fan': True, 'heat2': False},
             'sensor_readings': [],
@@ -73,8 +77,9 @@ class TestAPIStatus(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         
         data = json.loads(response.data)
-        self.assertEqual(data['system_temp'], 72.5)
-        self.assertEqual(data['target_temp_heat'], 68.0)
+        # API returns Fahrenheit for display (22.5°C = 72.5°F)
+        self.assertAlmostEqual(data['system_temp'], 72.5, places=1)
+        self.assertAlmostEqual(data['target_temp_heat'], 68.0, places=1)
         self.assertEqual(data['hvac_mode'], 'heat')
 
 
@@ -86,11 +91,15 @@ class TestControlEndpoints(unittest.TestCase):
         app.config['TESTING'] = True
         self.client = app.test_client()
         
+        # Clear database reference to avoid database errors
+        import web_interface
+        web_interface.database = None
+        
         self.control_callback = MagicMock(return_value={'success': True, 'message': 'OK'})
         set_control_callback(self.control_callback)
     
     def test_set_temperature_heat(self):
-        """Test setting heat temperature"""
+        """Test setting heat temperature (converts F to C)"""
         response = self.client.post('/api/control/temperature',
                                    json={'type': 'heat', 'temperature': 70})
         
@@ -98,11 +107,11 @@ class TestControlEndpoints(unittest.TestCase):
         data = json.loads(response.data)
         self.assertTrue(data['success'])
         
-        # Verify callback was called
-        self.control_callback.assert_called_once_with(
-            'set_temperature',
-            {'type': 'heat', 'temperature': 70}
-        )
+        # Verify callback was called with Celsius value (~21.11°C)
+        call_args = self.control_callback.call_args
+        self.assertEqual(call_args[0][0], 'set_temperature')
+        self.assertEqual(call_args[0][1]['type'], 'heat')
+        self.assertAlmostEqual(call_args[0][1]['temperature'], 21.11, places=1)
     
     def test_set_temperature_cool(self):
         """Test setting cool temperature"""
