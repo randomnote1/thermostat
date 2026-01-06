@@ -341,7 +341,10 @@
                         <option value="24" selected>Last 24 hours</option>
                         <option value="72">Last 3 days</option>
                     </select>
-                    <span style="color: #718096;">Showing latest 100 readings per sensor</span>
+                    <select id="sensor-filter" onchange="updateSensorChart()" style="margin-left: 10px;">
+                        <option value="all">All Sensors</option>
+                    </select>
+                    <span style="color: #718096; margin-left: 10px;">Showing latest 100 readings per sensor</span>
                 </div>
                 <!-- Temperature Graph -->
                 <div class="chart-container">
@@ -498,6 +501,7 @@
         }
 
             let sensorChart = null;
+                let sensorHistoryData = [];
 
         async function loadSensorHistory() {
             const hours = document.getElementById('sensor-hours').value;
@@ -505,11 +509,11 @@
             try {
                 const response = await fetch(`/api/history/sensors?hours=${hours}&limit=100`);
                 const data = await response.json();
-                const history = data.history || [];
+                sensorHistoryData = data.history || [];
                 
                 const tbody = document.getElementById('sensor-history');
                 
-                if (history.length === 0) {
+                if (sensorHistoryData.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #718096;">No sensor history</td></tr>';
                     if (sensorChart) {
                         sensorChart.destroy();
@@ -518,8 +522,21 @@
                     return;
                 }
                 
+                // Update sensor selector
+                const sensorFilter = document.getElementById('sensor-filter');
+                const uniqueSensors = [...new Set(sensorHistoryData.map(r => r.sensor_name))];
+                const currentSelection = sensorFilter.value;
+
+                sensorFilter.innerHTML = '<option value="all">All Sensors</option>' +
+                    uniqueSensors.map(name => `<option value="${name}">${name}</option>`).join('');
+
+                // Restore selection if it still exists
+                if (uniqueSensors.includes(currentSelection)) {
+                    sensorFilter.value = currentSelection;
+                }
+                
                 // Update table
-                tbody.innerHTML = history.map(record => `
+                tbody.innerHTML = sensorHistoryData.map(record => `
                     <tr>
                         <td>${formatDateTime(record.timestamp)}</td>
                         <td><strong>${record.sensor_name}</strong></td>
@@ -529,14 +546,26 @@
                 `).join('');
 
                 // Update graph
-                updateSensorChart(history);
+                updateSensorChart();
             } catch (error) {
                 console.error('Failed to load sensor history:', error);
             }
         }
 
-            function updateSensorChart(history) {
+                function updateSensorChart() {
                 try {
+                    const selectedSensor = document.getElementById('sensor-filter').value;
+                    let history = sensorHistoryData;
+
+                    // Filter by selected sensor if not "all"
+                    if (selectedSensor !== 'all') {
+                        history = history.filter(r => r.sensor_name === selectedSensor);
+                    }
+
+                    if (history.length === 0) {
+                        return;
+                    }
+                    
                     // Group data by sensor
                     const sensorData = {};
 
@@ -583,6 +612,64 @@
                             pointHoverRadius: 5
                         };
                     });
+
+                    // Add average and trend line if single sensor is selected
+                    if (selectedSensor !== 'all' && Object.keys(sensorData).length === 1) {
+                        const sensorName = Object.keys(sensorData)[0];
+                        const data = sensorData[sensorName];
+                        const temps = data.temperatures;
+
+                        // Calculate average
+                        const average = temps.reduce((a, b) => a + b, 0) / temps.length;
+                        const avgData = data.timestamps.map(timestamp => ({
+                            x: timestamp,
+                            y: average
+                        }));
+
+                        // Calculate linear regression for trend line
+                        const n = temps.length;
+                        const xValues = temps.map((_, i) => i);
+                        const sumX = xValues.reduce((a, b) => a + b, 0);
+                        const sumY = temps.reduce((a, b) => a + b, 0);
+                        const sumXY = xValues.reduce((sum, x, i) => sum + x * temps[i], 0);
+                        const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
+
+                        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                        const intercept = (sumY - slope * sumX) / n;
+
+                        const trendData = data.timestamps.map((timestamp, i) => ({
+                            x: timestamp,
+                            y: slope * i + intercept
+                        }));
+
+                        // Add average line dataset
+                        datasets.push({
+                            label: 'Average (' + average.toFixed(1) + '°F)',
+                            data: avgData,
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(234, 179, 8, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        });
+
+                        // Add trend line dataset
+                        datasets.push({
+                            label: 'Trend',
+                            data: trendData,
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 2,
+                            borderDash: [10, 5],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        });
+                    }
 
                     // Destroy existing chart if it exists
                     if (sensorChart) {
