@@ -89,6 +89,18 @@
 
         .sensor-control-row input[type="text"] {
             flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            color: var(--text-primary);
+            font-size: 1em;
+        }
+
+        .sensor-control-row input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .checkbox-label {
@@ -96,6 +108,7 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
+            color: var(--text-primary);
         }
 
         .checkbox-label input[type="checkbox"] {
@@ -152,10 +165,17 @@
             border-left: 4px solid var(--primary-color);
             border-radius: 4px;
             margin-bottom: 20px;
+            color: var(--text-primary);
         }
 
         .info-box p {
             margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        .info-box strong {
+            color: var(--text-primary);
+            font-weight: 600;
         }
 
         .success-message, .error-message {
@@ -175,6 +195,85 @@
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
+        }
+
+        /* Dark mode improvements */
+        @media (prefers-color-scheme: dark) {
+            :root:not(.light-mode) .info-box {
+                background: rgba(102, 126, 234, 0.15);
+                border-left-color: #a78bfa;
+                color: #e2e8f0;
+            }
+
+            :root:not(.light-mode) .sensor-card {
+                background: #1f2937;
+                border-color: #374151;
+            }
+
+            :root:not(.light-mode) .setting-item {
+                background: #1f2937;
+            }
+
+            :root:not(.light-mode) .sensor-control-row label,
+            :root:not(.light-mode) .setting-item label {
+                color: #e2e8f0;
+            }
+
+            :root:not(.light-mode) .sensor-control-row input[type="text"] {
+                background: #374151;
+                border: 1px solid #4b5563;
+                color: #e2e8f0;
+            }
+
+            :root:not(.light-mode) .success-message {
+                background: rgba(72, 187, 120, 0.2);
+                color: #86efac;
+                border-color: #48bb78;
+            }
+
+            :root:not(.light-mode) .error-message {
+                background: rgba(245, 101, 101, 0.2);
+                color: #fca5a5;
+                border-color: #f56565;
+            }
+        }
+
+        :root.dark-mode .info-box {
+            background: rgba(102, 126, 234, 0.15);
+            border-left-color: #a78bfa;
+            color: #e2e8f0;
+        }
+
+        :root.dark-mode .sensor-card {
+            background: #1f2937;
+            border-color: #374151;
+        }
+
+        :root.dark-mode .setting-item {
+            background: #1f2937;
+        }
+
+        :root.dark-mode .sensor-control-row label,
+        :root.dark-mode .setting-item label {
+            color: #e2e8f0;
+        }
+
+        :root.dark-mode .sensor-control-row input[type="text"] {
+            background: #374151;
+            border: 1px solid #4b5563;
+            color: #e2e8f0;
+        }
+
+        :root.dark-mode .success-message {
+            background: rgba(72, 187, 120, 0.2);
+            color: #86efac;
+            border-color: #48bb78;
+        }
+
+        :root.dark-mode .error-message {
+            background: rgba(245, 101, 101, 0.2);
+            color: #fca5a5;
+            border-color: #f56565;
         }
 
         @keyframes slideIn {
