@@ -153,6 +153,49 @@
             color: #718096;
         }
 
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: #718096;
+            transition: all 0.3s;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .tab-button:last-child {
+            border-right: none;
+        }
+
+        .tab-button:hover {
+            background: #f7fafc;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .filters {
                 flex-direction: column;
@@ -161,6 +204,19 @@
             th, td {
                 padding: 8px;
                 font-size: 0.9em;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab-button {
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .tab-button:last-child {
+                border-bottom: none;
             }
         }
     </style>
@@ -177,104 +233,153 @@
             <a href="/history" class="active">History</a>
         </div>
 
-        <!-- Database Stats -->
-        <div class="card">
-            <h2>Database Statistics</h2>
-            <div class="stats-grid" id="stats-grid">
-                <div class="loading">Loading stats...</div>
+        <!-- Tab Selector -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('stats')">📊 Stats</button>
+            <button class="tab-button" onclick="switchTab('settings')">⚙️ Settings</button>
+            <button class="tab-button" onclick="switchTab('hvac')">🔥 HVAC</button>
+            <button class="tab-button" onclick="switchTab('sensors')">🌡️ Sensors</button>
+        </div>
+        
+        <!-- Database Stats Tab -->
+        <div id="tab-stats" class="tab-content active">
+            <div class="card">
+                <h2>Database Statistics</h2>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="loading">Loading stats...</div>
+                </div>
             </div>
         </div>
 
-        <!-- Setting Changes -->
-        <div class="card">
-            <h2>Recent Setting Changes</h2>
-            <div class="filters">
-                <select id="settings-limit" onchange="loadSettingHistory()">
-                    <option value="50">Last 50</option>
-                    <option value="100" selected>Last 100</option>
-                    <option value="500">Last 500</option>
-                </select>
-            </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Setting</th>
-                            <th>Old Value</th>
-                            <th>New Value</th>
-                            <th>Source</th>
-                        </tr>
-                    </thead>
-                    <tbody id="settings-history">
-                        <tr><td colspan="5" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- HVAC History -->
-        <div class="card">
-            <h2>HVAC Activity Log</h2>
-            <div class="filters">
-                <select id="hvac-hours" onchange="loadHvacHistory()">
-                    <option value="6">Last 6 hours</option>
-                    <option value="12">Last 12 hours</option>
-                    <option value="24" selected>Last 24 hours</option>
-                    <option value="72">Last 3 days</option>
-                </select>
-            </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>System Temp</th>
-                            <th>Target Temp</th>
-                            <th>Mode</th>
-                            <th>Heat</th>
-                            <th>Cool</th>
-                            <th>Fan</th>
-                        </tr>
-                    </thead>
-                    <tbody id="hvac-history">
-                        <tr><td colspan="7" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
+        <!-- Settings History Tab -->
+        <div id="tab-settings" class="tab-content">
+            <div class="card">
+                <h2>Recent Setting Changes</h2>
+                <div class="filters">
+                    <select id="settings-limit" onchange="loadSettingHistory()">
+                        <option value="50">Last 50</option>
+                        <option value="100" selected>Last 100</option>
+                        <option value="500">Last 500</option>
+                    </select>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Setting</th>
+                                <th>Old Value</th>
+                                <th>New Value</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody id="settings-history">
+                            <tr>
+                                <td colspan="5" class="loading">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- Sensor History -->
-        <div class="card">
-            <h2>Sensor Reading History</h2>
-            <div class="filters">
-                <select id="sensor-hours" onchange="loadSensorHistory()">
-                    <option value="6">Last 6 hours</option>
-                    <option value="12">Last 12 hours</option>
-                    <option value="24" selected>Last 24 hours</option>
-                    <option value="72">Last 3 days</option>
-                </select>
-                <span style="color: #718096;">Showing latest 100 readings per sensor</span>
+        <!-- HVAC History Tab -->
+        <div id="tab-hvac" class="tab-content">
+            <div class="card">
+                <h2>HVAC Activity Log</h2>
+                <div class="filters">
+                    <select id="hvac-hours" onchange="loadHvacHistory()">
+                        <option value="6">Last 6 hours</option>
+                        <option value="12">Last 12 hours</option>
+                        <option value="24" selected>Last 24 hours</option>
+                        <option value="72">Last 3 days</option>
+                    </select>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>System Temp</th>
+                                <th>Target Temp</th>
+                                <th>Mode</th>
+                                <th>Heat</th>
+                                <th>Cool</th>
+                                <th>Fan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hvac-history">
+                            <tr>
+                                <td colspan="7" class="loading">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Sensor</th>
-                            <th>Temperature</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="sensor-history">
-                        <tr><td colspan="4" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
+        </div>
+
+        <!-- Sensor History Tab -->
+        <div id="tab-sensors" class="tab-content">
+            <div class="card">
+                <h2>Sensor Reading History</h2>
+                <div class="filters">
+                    <select id="sensor-hours" onchange="loadSensorHistory()">
+                        <option value="6">Last 6 hours</option>
+                        <option value="12">Last 12 hours</option>
+                        <option value="24" selected>Last 24 hours</option>
+                        <option value="72">Last 3 days</option>
+                    </select>
+                    <span style="color: #718096;">Showing latest 100 readings per sensor</span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Sensor</th>
+                                <th>Temperature</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sensor-history">
+                            <tr>
+                                <td colspan="4" class="loading">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+            function switchTab(tabName) {
+                // Hide all tab contents
+                const contents = document.querySelectorAll('.tab-content');
+                contents.forEach(content => content.classList.remove('active'));
+
+                // Deactivate all tab buttons
+                const buttons = document.querySelectorAll('.tab-button');
+                buttons.forEach(button => button.classList.remove('active'));
+
+                // Show selected tab content
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+
+                // Activate selected tab button
+                event.target.classList.add('active');
+
+                // Load data for the selected tab if not already loaded
+                if (tabName === 'stats') {
+                    loadDatabaseStats();
+                } else if (tabName === 'settings') {
+                    loadSettingHistory();
+                } else if (tabName === 'hvac') {
+                    loadHvacHistory();
+                } else if (tabName === 'sensors') {
+                    loadSensorHistory();
+                }
+            }
+
         function formatDateTime(timestamp) {
             const date = new Date(timestamp);
             return date.toLocaleString();
@@ -402,17 +507,23 @@
         }
 
         // Load all data on page load
-        loadDatabaseStats();
-        loadSettingHistory();
-        loadHvacHistory();
-        loadSensorHistory();
-
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
             loadDatabaseStats();
-            loadSettingHistory();
-            loadHvacHistory();
-            loadSensorHistory();
+
+            // Auto-refresh current tab every 30 seconds
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) {
+                const tabId = activeTab.id;
+                if (tabId === 'tab-stats') {
+                    loadDatabaseStats();
+                } else if (tabId === 'tab-settings') {
+                    loadSettingHistory();
+                } else if (tabId === 'tab-hvac') {
+                    loadHvacHistory();
+                } else if (tabId === 'tab-sensors') {
+                    loadSensorHistory();
+                }
+            }
         }, 30000);
     </script>
 </body>
