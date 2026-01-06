@@ -27,7 +27,7 @@
         }
 
         @media (prefers-color-scheme: dark) {
-            :root {
+            :root:not(.light-mode) {
                 /* Dark mode colors */
                 --bg-gradient-start: #1a202c;
                 --bg-gradient-end: #2d3748;
@@ -41,6 +41,21 @@
                 --mode-bg: #374151;
                 --shadow: rgba(0,0,0,0.5);
             }
+        }
+
+        :root.dark-mode {
+            /* Dark mode colors - manual override */
+            --bg-gradient-start: #1a202c;
+            --bg-gradient-end: #2d3748;
+            --card-bg: #2d3748;
+            --text-primary: #e2e8f0;
+            --text-secondary: #cbd5e0;
+            --text-tertiary: #a0aec0;
+            --accent-color: #a78bfa;
+            --border-color: #4a5568;
+            --sensor-bg: #374151;
+            --mode-bg: #374151;
+            --shadow: rgba(0,0,0,0.5);
         }
 
         body {
@@ -69,6 +84,30 @@
         .header .status {
             font-size: 0.9em;
             opacity: 0.9;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
         }
 
         .nav {
@@ -496,6 +535,9 @@
     </style>
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+        <span id="theme-icon">🌙</span>
+    </button>
     <div class="container">
         <div class="header">
             <h1>🌡️ Thermostat Dashboard</h1>
@@ -604,6 +646,46 @@
     </div>
 
     <script>
+            // Theme toggle functionality
+            function toggleTheme() {
+                const root = document.documentElement;
+                const icon = document.getElementById('theme-icon');
+                const currentTheme = localStorage.getItem('theme');
+
+                if (currentTheme === 'dark') {
+                    root.classList.remove('dark-mode');
+                    root.classList.add('light-mode');
+                    localStorage.setItem('theme', 'light');
+                    icon.textContent = '🌙';
+                } else if (currentTheme === 'light') {
+                    localStorage.removeItem('theme');
+                    root.classList.remove('light-mode');
+                    root.classList.remove('dark-mode');
+                    icon.textContent = '🌓';
+                } else {
+                    root.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                    icon.textContent = '☀️';
+                }
+            }
+
+            // Apply saved theme on page load
+            (function () {
+                const savedTheme = localStorage.getItem('theme');
+                const icon = document.getElementById('theme-icon');
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                    icon.textContent = '☀️';
+                } else if (savedTheme === 'light') {
+                    document.documentElement.classList.add('light-mode');
+                    icon.textContent = '🌙';
+                } else {
+                    // Auto mode - check system preference
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    icon.textContent = prefersDark ? '☀️' : '🌙';
+                }
+            })();
+
         let errorCount = 0;
         let currentMode = 'off';
         let currentTargetHeat = 68;
