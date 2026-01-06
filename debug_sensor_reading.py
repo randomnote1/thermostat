@@ -14,19 +14,18 @@ try:
     for sensor in W1ThermSensor.get_available_sensors():
         print(f"\nSensor ID: {sensor.id}")
         
-        # Get temperature in different units
+        # Get temperature in Celsius (default)
         temp_c = sensor.get_temperature()
-        temp_f = sensor.get_temperature(W1ThermSensor.DEGREES_F)
-        temp_k = sensor.get_temperature(W1ThermSensor.KELVIN)
+        
+        # Manual conversion to Fahrenheit
+        temp_f = (temp_c * 9/5) + 32
+        
+        # Manual conversion to Kelvin
+        temp_k = temp_c + 273.15
         
         print(f"  Celsius:    {temp_c:.2f}°C")
         print(f"  Fahrenheit: {temp_f:.2f}°F")
         print(f"  Kelvin:     {temp_k:.2f}K")
-        
-        # Manual conversion to check
-        manual_f = (temp_c * 9/5) + 32
-        print(f"  Manual C→F: {manual_f:.2f}°F")
-        print(f"  Difference: {abs(temp_f - manual_f):.4f}°F")
         
 except ImportError as e:
     print(f"Import error: {e}")
