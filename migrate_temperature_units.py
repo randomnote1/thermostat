@@ -21,6 +21,22 @@ def migrate_database(db_path='thermostat.db'):
     
     db = ThermostatDatabase(db_path)
     
+    # First, ensure the temperature_units column exists in the schema
+    print("Checking database schema...")
+    cursor = db.conn.cursor()
+    
+    # Check if temperature_units column exists
+    cursor.execute("PRAGMA table_info(settings)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if 'temperature_units' not in columns:
+        print("  Adding temperature_units column to settings table...")
+        cursor.execute("ALTER TABLE settings ADD COLUMN temperature_units TEXT DEFAULT 'F'")
+        db.conn.commit()
+        print("  ✓ Schema updated")
+    else:
+        print("  ✓ Schema already up to date")
+    
     # Load current settings
     settings = db.load_settings()
     
