@@ -14,9 +14,45 @@
             box-sizing: border-box;
         }
 
+        :root {
+            /* Light mode colors */
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-tertiary: #718096;
+            --accent-color: #667eea;
+            --border-color: #e2e8f0;
+            --table-header-bg: #edf2f7;
+            --table-row-hover: #f7fafc;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e0;
+            --shadow: rgba(0,0,0,0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark mode colors */
+                --bg-gradient-start: #1a202c;
+                --bg-gradient-end: #2d3748;
+                --card-bg: #2d3748;
+                --text-primary: #e2e8f0;
+                --text-secondary: #cbd5e0;
+                --text-tertiary: #a0aec0;
+                --accent-color: #7c3aed;
+                --border-color: #4a5568;
+                --table-header-bg: #374151;
+                --table-row-hover: #374151;
+                --input-bg: #374151;
+                --input-border: #4a5568;
+                --shadow: rgba(0,0,0,0.5);
+            }
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -66,18 +102,26 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
+        @media (prefers-color-scheme: dark) {
+            .nav a.active {
+                background: rgba(124, 58, 237, 0.3);
+                color: #ffffff;
+                border-bottom: 3px solid #a78bfa;
+            }
+        }
+
         .card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px var(--shadow);
             margin-bottom: 20px;
         }
 
         .card h2 {
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 20px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid var(--accent-color);
             padding-bottom: 10px;
         }
 
@@ -90,9 +134,11 @@
 
         .filters select {
             padding: 10px;
-            border: 1px solid #cbd5e0;
+            border: 1px solid var(--input-border);
             border-radius: 5px;
             font-size: 1em;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         table {
@@ -101,20 +147,21 @@
         }
 
         th {
-            background: #edf2f7;
+            background: var(--table-header-bg);
             padding: 12px;
             text-align: left;
             font-weight: 600;
-            color: #2d3748;
+            color: var(--text-primary);
         }
 
         td {
             padding: 12px;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
         }
 
         tr:hover {
-            background: #f7fafc;
+            background: var(--table-row-hover);
         }
 
         .badge {
@@ -143,7 +190,7 @@
 
         .stat-box {
             padding: 20px;
-            background: #edf2f7;
+            background: var(--table-header-bg);
             border-radius: 8px;
             text-align: center;
         }
@@ -151,7 +198,13 @@
         .stat-value {
             font-size: 2em;
             font-weight: bold;
-            color: #667eea;
+            color: var(--accent-color);
+        }
+
+        .stat-label {
+            color: var(--text-tertiary);
+            font-size: 0.9em;
+            margin-top: 5px;
         }
 
         .stat-label {

@@ -11,9 +11,41 @@
             box-sizing: border-box;
         }
 
+        :root {
+            /* Light mode colors */
+            --bg-gradient-start: #667eea;
+            --bg-gradient-end: #764ba2;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-tertiary: #718096;
+            --accent-color: #667eea;
+            --border-color: #e2e8f0;
+            --input-bg: #ffffff;
+            --input-border: #cbd5e0;
+            --shadow: rgba(0,0,0,0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark mode colors */
+                --bg-gradient-start: #1a202c;
+                --bg-gradient-end: #2d3748;
+                --card-bg: #2d3748;
+                --text-primary: #e2e8f0;
+                --text-secondary: #cbd5e0;
+                --text-tertiary: #a0aec0;
+                --accent-color: #7c3aed;
+                --border-color: #4a5568;
+                --input-bg: #374151;
+                --input-border: #4a5568;
+                --shadow: rgba(0,0,0,0.5);
+            }
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -63,18 +95,26 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
+        @media (prefers-color-scheme: dark) {
+            .nav a.active {
+                background: rgba(124, 58, 237, 0.3);
+                color: #ffffff;
+                border-bottom: 3px solid #a78bfa;
+            }
+        }
+
         .card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px var(--shadow);
             margin-bottom: 20px;
         }
 
         .card h2 {
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 20px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 2px solid var(--accent-color);
             padding-bottom: 10px;
         }
 
@@ -124,23 +164,23 @@
             align-items: center;
             padding: 15px;
             margin-bottom: 10px;
-            background: #f7fafc;
+            background: var(--input-bg);
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid var(--accent-color);
         }
 
         .schedule-item.disabled {
             opacity: 0.6;
-            border-left-color: #cbd5e0;
+            border-left-color: var(--border-color);
         }
 
         .schedule-info h3 {
             margin-bottom: 5px;
-            color: #2d3748;
+            color: var(--text-primary);
         }
 
         .schedule-details {
-            color: #718096;
+            color: var(--text-tertiary);
             font-size: 0.9em;
         }
 
@@ -161,12 +201,12 @@
         }
 
         .modal-content {
-            background: white;
+            background: var(--card-bg);
             margin: 5% auto;
             padding: 30px;
             border-radius: 15px;
             max-width: 600px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px var(--shadow);
         }
 
         .form-group {
@@ -176,7 +216,7 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            color: #2d3748;
+            color: var(--text-primary);
             font-weight: 600;
         }
 
@@ -184,9 +224,11 @@
         .form-group select {
             width: 100%;
             padding: 10px;
-            border: 1px solid #cbd5e0;
+            border: 1px solid var(--input-border);
             border-radius: 5px;
             font-size: 1em;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         .checkbox-group {
