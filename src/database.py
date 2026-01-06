@@ -168,12 +168,18 @@ class ThermostatDatabase:
             row = cursor.fetchone()
             
             if row:
+                # Handle temperature_units column that might not exist in old databases
+                try:
+                    temperature_units = row['temperature_units']
+                except (KeyError, IndexError):
+                    temperature_units = 'F'
+                
                 return {
                     'target_temp_heat': row['target_temp_heat'],
                     'target_temp_cool': row['target_temp_cool'],
                     'hvac_mode': row['hvac_mode'],
                     'fan_mode': row['fan_mode'],
-                    'temperature_units': row.get('temperature_units', 'F'),
+                    'temperature_units': temperature_units,
                     'updated_at': row['updated_at']
                 }
             return None
