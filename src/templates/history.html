@@ -351,12 +351,31 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
-                // Listen for theme changes to update chart
-                window.addEventListener('themechange', function () {
-                    if (typeof updateSensorChart === 'function') {
-                        updateSensorChart();
-                }
-            });
+        // Global temperature units
+        let temperatureUnits = 'F';
+        let temperatureSymbol = '°F';
+        
+        // Fetch current temperature units from API
+        async function loadTemperatureUnits() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                temperatureUnits = data.temperature_units || 'F';
+                temperatureSymbol = data.temperature_symbol || '°F';
+            } catch (error) {
+                console.error('Failed to load temperature units:', error);
+            }
+        }
+        
+        // Load temperature units on page load
+        loadTemperatureUnits();
+        
+        // Listen for theme changes to update chart
+        window.addEventListener('themechange', function () {
+            if (typeof updateSensorChart === 'function') {
+                updateSensorChart();
+            }
+        });
 
             function switchTab(tabName) {
                 // Hide all tab contents
@@ -495,11 +514,17 @@
                     return;
                 }
                 
+                // Update temperature units from response
+                if (data.temperature_units) {
+                    temperatureUnits = data.temperature_units;
+                    temperatureSymbol = data.temperature_symbol || '°F';
+                }
+                
                 tbody.innerHTML = history.map(record => `
                     <tr>
                         <td>${formatDateTime(record.timestamp)}</td>
-                        <td>${record.system_temp ? record.system_temp.toFixed(1) + '°F' : '-'}</td>
-                        <td>${record.target_temp ? record.target_temp.toFixed(1) + '°F' : '-'}</td>
+                        <td>${record.system_temp ? record.system_temp.toFixed(1) + temperatureSymbol : '-'}</td>
+                        <td>${record.target_temp ? record.target_temp.toFixed(1) + temperatureSymbol : '-'}</td>
                         <td><strong>${(record.hvac_mode || 'off').toUpperCase()}</strong></td>
                         <td><span class="badge ${record.heat_active ? 'badge-on' : 'badge-off'}">${record.heat_active ? 'ON' : 'OFF'}</span></td>
                         <td><span class="badge ${record.cool_active ? 'badge-on' : 'badge-off'}">${record.cool_active ? 'ON' : 'OFF'}</span></td>
@@ -565,12 +590,18 @@
                     sensorFilter.value = currentSelection;
                 }
                 
+                // Update temperature units from response
+                if (data.temperature_units) {
+    temperatureUnits = data.temperature_units;
+                    temperatureSymbol = data.temperature_symbol || '°F';
+                }
+                
                 // Update table
                 tbody.innerHTML = sensorHistoryData.map(record => `
                     <tr>
                         <td>${formatDateTime(record.timestamp)}</td>
                         <td><strong>${record.sensor_name}</strong></td>
-                        <td>${record.temperature.toFixed(1)}°F</td>
+                        <td>${record.temperature.toFixed(1)}${temperatureSymbol}</td>
                         <td>${record.is_compromised ? '<span class="badge" style="background:#fed7d7;color:#c53030;">Compromised</span>' : '<span class="badge badge-on">Normal</span>'}</td>
                     </tr>
                 `).join('');
@@ -850,7 +881,7 @@
 
                         // Add average line dataset
                         datasets.push({
-                            label: 'Average (' + average.toFixed(1) + '°F)',
+                            label: 'Average (' + average.toFixed(1) + temperatureSymbol + ')',
                             data: avgData,
                             backgroundColor: 'transparent',
                             borderColor: 'rgba(234, 179, 8, 1)',
@@ -993,7 +1024,7 @@
                                     intersect: false,
                                     callbacks: {
                                         label: function (context) {
-                                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '°F';
+                                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + temperatureSymbol;
                                         }
                                     }
                                 }
@@ -1024,7 +1055,7 @@
                                 y: {
                                     title: {
                                         display: true,
-                                        text: 'Temperature (°F)',
+                                        text: 'Temperature (' + temperatureSymbol + ')',
                                         font: { size: 14, weight: 'bold' },
                                         color: textColor
                                     },
@@ -1035,7 +1066,7 @@
                                     ticks: {
                                         color: textColor,
                                         callback: function (value) {
-                                            return value.toFixed(0) + '°F';
+                                            return value.toFixed(0) + temperatureSymbol;
                                         }
                                     }
                                 }

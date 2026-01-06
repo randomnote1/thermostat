@@ -11,6 +11,9 @@ from typing import Dict, List, Optional
 from flask import Flask, render_template, jsonify, request
 from threading import Thread, Lock
 
+# Import temperature conversion utilities
+from temperature_utils import convert_temperature, get_unit_symbol
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 
@@ -58,6 +61,55 @@ def get_state() -> Dict:
         return current_state.copy()
 
 
+def get_temperature_units() -> str:
+    """Get current temperature units preference from database"""
+    if database:
+        settings = database.load_settings()
+        if settings:
+            return settings.get('temperature_units', 'F')
+    return 'F'  # Default to Fahrenheit
+
+
+def convert_state_temperatures(state: Dict, to_units: str) -> Dict:
+    """Convert all temperatures in state dict from Celsius to specified units
+    
+    Args:
+        state: State dictionary with temperatures in Celsius
+        to_units: Target temperature units ('F', 'C', or 'K')
+        
+    Returns:
+        State dict with converted temperatures
+    """
+    converted = state.copy()
+    
+    # Convert scalar temperatures
+    if state.get('system_temp') is not None:
+        converted['system_temp'] = convert_temperature(state['system_temp'], 'C', to_units)
+    
+    if state.get('target_temp_heat') is not None:
+        converted['target_temp_heat'] = convert_temperature(state['target_temp_heat'], 'C', to_units)
+    
+    if state.get('target_temp_cool') is not None:
+        converted['target_temp_cool'] = convert_temperature(state['target_temp_cool'], 'C', to_units)
+    
+    # Convert sensor readings
+    if 'sensor_readings' in state:
+        converted['sensor_readings'] = []
+        for reading in state['sensor_readings']:
+            converted_reading = reading.copy()
+            if 'temperature' in reading and reading['temperature'] is not None:
+                converted_reading['temperature'] = convert_temperature(
+                    reading['temperature'], 'C', to_units
+                )
+            converted['sensor_readings'].append(converted_reading)
+    
+    # Add unit info to state
+    converted['temperature_units'] = to_units
+    converted['temperature_symbol'] = get_unit_symbol(to_units)
+    
+    return converted
+
+
 @app.route('/')
 def index():
     """Main dashboard page"""
@@ -80,37 +132,56 @@ def history_page():
 def api_status():
     """API endpoint for current status"""
     state = get_state()
-    return jsonify(state)
+    units = get_temperature_units()
+    converted_state = convert_state_temperatures(state, units)
+    return jsonify(converted_state)
 
 
 @app.route('/api/sensors')
 def api_sensors():
     """API endpoint for sensor details"""
     state = get_state()
+    units = get_temperature_units()
     sensors = []
     
     for reading in state.get('sensor_readings', []):
+        temp_celsius = reading.get('temperature')
+        temp_display = convert_temperature(temp_celsius, 'C', units) if temp_celsius is not None else None
+        
         sensors.append({
             'id': reading.get('id'),
             'name': reading.get('name'),
-            'temperature': reading.get('temperature'),
+            'temperature': temp_display,
             'timestamp': reading.get('timestamp'),
             'compromised': reading.get('id') in state.get('compromised_sensors', [])
         })
     
-    return jsonify({'sensors': sensors})
+    return jsonify({
+        'sensors': sensors,
+        'temperature_units': units,
+        'temperature_symbol': get_unit_symbol(units)
+    })
 
 
 @app.route('/api/hvac')
 def api_hvac():
     """API endpoint for HVAC status"""
     state = get_state()
+    units = get_temperature_units()
+    
+    # Convert temperatures for display
+    target_heat = convert_temperature(state.get('target_temp_heat'), 'C', units) if state.get('target_temp_heat') is not None else None
+    target_cool = convert_temperature(state.get('target_temp_cool'), 'C', units) if state.get('target_temp_cool') is not None else None
+    system_temp = convert_temperature(state.get('system_temp'), 'C', units) if state.get('system_temp') is not None else None
+    
     return jsonify({
         'mode': state.get('hvac_mode'),
         'state': state.get('hvac_state'),
-        'target_heat': state.get('target_temp_heat'),
-        'target_cool': state.get('target_temp_cool'),
-        'system_temp': state.get('system_temp')
+        'target_heat': target_heat,
+        'target_cool': target_cool,
+        'system_temp': system_temp,
+        'temperature_units': units,
+        'temperature_symbol': get_unit_symbol(units)
     })
 
 
@@ -125,14 +196,29 @@ def api_control_temperature():
         temp_type = data.get('type')  # 'heat' or 'cool'
         temperature = float(data.get('temperature'))
         
-        # Validate temperature range
-        if temperature < 50 or temperature > 90:
-            return jsonify({'error': 'Temperature out of range (50-90°F)'}), 400
+        # Get current temperature units to know what the user sent
+        units = get_temperature_units()
         
-        # Send control command
+        # Define validation ranges based on units
+        if units == 'F':
+            min_temp, max_temp = 50, 90
+        elif units == 'C':
+            min_temp, max_temp = 10, 32
+        else:  # Kelvin
+            min_temp, max_temp = 283, 305
+        
+        # Validate temperature range
+        if temperature < min_temp or temperature > max_temp:
+            symbol = get_unit_symbol(units)
+            return jsonify({'error': f'Temperature out of range ({min_temp}-{max_temp}{symbol})'}), 400
+        
+        # Convert to Celsius for internal use
+        temperature_celsius = convert_temperature(temperature, units, 'C')
+        
+        # Send control command (expects Celsius)
         result = control_callback('set_temperature', {
             'type': temp_type,
-            'temperature': temperature
+            'temperature': temperature_celsius
         })
         
         return jsonify({'success': True, 'result': result})
@@ -183,6 +269,49 @@ def api_control_fan():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/control/units', methods=['POST'])
+def api_control_units():
+    """API endpoint to set temperature display units"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        data = request.json
+        units = data.get('units', 'F').upper()
+        
+        # Validate units
+        if units not in ['F', 'C', 'K']:
+            return jsonify({'error': 'Invalid units (must be F, C, or K)'}), 400
+        
+        # Load current settings
+        settings = database.load_settings()
+        if not settings:
+            return jsonify({'error': 'No settings found'}), 500
+        
+        # Update temperature units
+        database.save_settings(
+            target_temp_heat=settings['target_temp_heat'],
+            target_temp_cool=settings['target_temp_cool'],
+            hvac_mode=settings['hvac_mode'],
+            fan_mode=settings.get('fan_mode', 'auto'),
+            temperature_units=units
+        )
+        
+        # Log the change
+        database.log_setting_change('temperature_units', 
+                                   settings.get('temperature_units', 'F'), 
+                                   units, 'web_interface')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Temperature units set to {get_unit_symbol(units)}',
+            'units': units
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ==================== SCHEDULE ENDPOINTS ====================
 
 @app.route('/api/schedules', methods=['GET'])
@@ -193,7 +322,24 @@ def api_get_schedules():
     
     try:
         schedules = database.get_schedules()
-        return jsonify({'schedules': schedules})
+        units = get_temperature_units()
+        
+        # Convert temperatures in schedules
+        for schedule in schedules:
+            if schedule.get('target_temp_heat') is not None:
+                schedule['target_temp_heat'] = convert_temperature(
+                    schedule['target_temp_heat'], 'C', units
+                )
+            if schedule.get('target_temp_cool') is not None:
+                schedule['target_temp_cool'] = convert_temperature(
+                    schedule['target_temp_cool'], 'C', units
+                )
+        
+        return jsonify({
+            'schedules': schedules,
+            'temperature_units': units,
+            'temperature_symbol': get_unit_symbol(units)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -206,12 +352,23 @@ def api_create_schedule():
     
     try:
         data = request.json
+        units = get_temperature_units()
+        
+        # Convert temperatures from user units to Celsius for storage
+        target_temp_heat = data.get('target_temp_heat')
+        target_temp_cool = data.get('target_temp_cool')
+        
+        if target_temp_heat is not None:
+            target_temp_heat = convert_temperature(target_temp_heat, units, 'C')
+        if target_temp_cool is not None:
+            target_temp_cool = convert_temperature(target_temp_cool, units, 'C')
+        
         schedule_id = database.create_schedule(
             name=data['name'],
             days_of_week=data['days_of_week'],
             time_str=data['time'],
-            target_temp_heat=data.get('target_temp_heat'),
-            target_temp_cool=data.get('target_temp_cool'),
+            target_temp_heat=target_temp_heat,
+            target_temp_cool=target_temp_cool,
             hvac_mode=data.get('hvac_mode')
         )
         return jsonify({'success': True, 'schedule_id': schedule_id})
@@ -227,6 +384,14 @@ def api_update_schedule(schedule_id):
     
     try:
         data = request.json
+        units = get_temperature_units()
+        
+        # Convert temperatures from user units to Celsius if provided
+        if 'target_temp_heat' in data and data['target_temp_heat'] is not None:
+            data['target_temp_heat'] = convert_temperature(data['target_temp_heat'], units, 'C')
+        if 'target_temp_cool' in data and data['target_temp_cool'] is not None:
+            data['target_temp_cool'] = convert_temperature(data['target_temp_cool'], units, 'C')
+        
         database.update_schedule(schedule_id, **data)
         return jsonify({'success': True})
     except Exception as e:
@@ -279,9 +444,20 @@ def api_sensor_history():
         sensor_id = request.args.get('sensor_id')
         hours = int(request.args.get('hours', 24))
         limit = int(request.args.get('limit', 1000))
+        units = get_temperature_units()
         
         history = database.get_sensor_history(sensor_id=sensor_id, hours=hours, limit=limit)
-        return jsonify({'history': history})
+        
+        # Convert temperatures in history
+        for entry in history:
+            if 'temperature' in entry and entry['temperature'] is not None:
+                entry['temperature'] = convert_temperature(entry['temperature'], 'C', units)
+        
+        return jsonify({
+            'history': history,
+            'temperature_units': units,
+            'temperature_symbol': get_unit_symbol(units)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -295,9 +471,22 @@ def api_hvac_history():
     try:
         hours = int(request.args.get('hours', 24))
         limit = int(request.args.get('limit', 1000))
+        units = get_temperature_units()
         
         history = database.get_hvac_history(hours=hours, limit=limit)
-        return jsonify({'history': history})
+        
+        # Convert temperatures in history
+        for entry in history:
+            if 'system_temp' in entry and entry['system_temp'] is not None:
+                entry['system_temp'] = convert_temperature(entry['system_temp'], 'C', units)
+            if 'target_temp' in entry and entry['target_temp'] is not None:
+                entry['target_temp'] = convert_temperature(entry['target_temp'], 'C', units)
+        
+        return jsonify({
+            'history': history,
+            'temperature_units': units,
+            'temperature_symbol': get_unit_symbol(units)
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

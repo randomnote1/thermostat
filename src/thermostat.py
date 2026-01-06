@@ -21,6 +21,14 @@ except ImportError:
     GPIO = None
     W1ThermSensor = None
 
+# Import temperature conversion utilities
+from temperature_utils import (
+    convert_temperature,
+    fahrenheit_to_celsius,
+    get_unit_symbol,
+    format_temperature
+)
+
 # Try to import web interface (optional)
 try:
     from web_interface import start_web_interface, update_state
@@ -93,13 +101,14 @@ class ThermostatController:
                 self.db = ThermostatDatabase(db_path)
                 logger.info(f"Database initialized: {db_path}")
         
-        # Load configuration from environment (defaults)
-        self.target_temp_heat = float(os.getenv('TARGET_TEMP_HEAT', 68.0))
-        self.target_temp_cool = float(os.getenv('TARGET_TEMP_COOL', 74.0))
-        self.hysteresis = float(os.getenv('HYSTERESIS', 0.5))
+        # Load configuration from environment (defaults in Fahrenheit, converted to Celsius)
+        # Config file values are in Fahrenheit for user convenience
+        self.target_temp_heat = fahrenheit_to_celsius(float(os.getenv('TARGET_TEMP_HEAT', 68.0)))
+        self.target_temp_cool = fahrenheit_to_celsius(float(os.getenv('TARGET_TEMP_COOL', 74.0)))
+        self.hysteresis = fahrenheit_to_celsius(float(os.getenv('HYSTERESIS', 0.5))) - fahrenheit_to_celsius(0)  # Convert delta
         self.sensor_read_interval = int(os.getenv('SENSOR_READ_INTERVAL', 30))
-        self.anomaly_threshold = float(os.getenv('SENSOR_ANOMALY_THRESHOLD', 3.0))
-        self.deviation_threshold = float(os.getenv('SENSOR_DEVIATION_THRESHOLD', 5.0))
+        self.anomaly_threshold = fahrenheit_to_celsius(float(os.getenv('SENSOR_ANOMALY_THRESHOLD', 3.0))) - fahrenheit_to_celsius(0)  # Convert delta
+        self.deviation_threshold = fahrenheit_to_celsius(float(os.getenv('SENSOR_DEVIATION_THRESHOLD', 5.0))) - fahrenheit_to_celsius(0)  # Convert delta
         self.ignore_duration = int(os.getenv('SENSOR_IGNORE_DURATION', 3600))
         self.hvac_min_run_time = int(os.getenv('HVAC_MIN_RUN_TIME', 300))
         self.hvac_min_rest_time = int(os.getenv('HVAC_MIN_REST_TIME', 300))
@@ -108,15 +117,15 @@ class ThermostatController:
         self.history_retention_days = int(os.getenv('HISTORY_RETENTION_DAYS', '1825'))  # 5 years
         self.history_max_disk_percent = float(os.getenv('HISTORY_MAX_DISK_PERCENT', '50.0'))  # 50%
         
-        # Load persisted settings from database (overrides env)
+        # Load persisted settings from database (stored in Celsius, overrides env)
         if self.db:
             saved_settings = self.db.load_settings()
             if saved_settings:
                 self.target_temp_heat = saved_settings['target_temp_heat']
                 self.target_temp_cool = saved_settings['target_temp_cool']
                 self.hvac_mode = saved_settings['hvac_mode']
-                logger.info(f"Loaded persisted settings: heat={self.target_temp_heat}°F, "
-                          f"cool={self.target_temp_cool}°F, mode={self.hvac_mode}")
+                logger.info(f"Loaded persisted settings: heat={self.target_temp_heat}°C, "
+                          f"cool={self.target_temp_cool}°C, mode={self.hvac_mode}")
         
         # GPIO configuration
         self.gpio_relay_heat = int(os.getenv('GPIO_RELAY_HEAT', 17))
@@ -221,16 +230,15 @@ class ThermostatController:
                 self._load_sensors_from_database()
     
     def read_sensors(self) -> List[SensorReading]:
-        """Read all temperature sensors"""
+        """Read all temperature sensors (stores in Celsius)"""
         readings = []
         
         if not W1ThermSensor:
-            # Development mode - return mock data
+            # Development mode - return mock data in Celsius
             logger.debug("Using mock sensor data (development mode)")
             for sensor_id, name in self.sensor_map.items():
                 temp_c = 20.0 + (hash(sensor_id) % 5)
-                temp_f = (temp_c * 9/5) + 32
-                readings.append(SensorReading(sensor_id, name, temp_f, datetime.now()))
+                readings.append(SensorReading(sensor_id, name, temp_c, datetime.now()))
             return readings
         
         try:
@@ -239,17 +247,16 @@ class ThermostatController:
                 sensor_id = sensor.id
                 detected_sensor_ids.append(sensor_id)
                 temp_c = sensor.get_temperature()
-                temp_f = (temp_c * 9/5) + 32
                 
                 # Use configured name if available, otherwise use sensor ID
                 if sensor_id in self.sensor_map:
                     name = self.sensor_map[sensor_id]
-                    logger.debug(f"Sensor {name}: {temp_f:.1f}°F")
+                    logger.debug(f"Sensor {name}: {temp_c:.1f}°C")
                 else:
                     name = f"Unconfigured ({sensor_id[:8]})"
-                    logger.debug(f"Sensor {sensor_id} (unconfigured): {temp_f:.1f}°F")
+                    logger.debug(f"Sensor {sensor_id} (unconfigured): {temp_c:.1f}°C")
                 
-                readings.append(SensorReading(sensor_id, name, temp_f, datetime.now()))
+                readings.append(SensorReading(sensor_id, name, temp_c, datetime.now()))
             
             # Auto-register any new sensors in the database
             if self.db and detected_sensor_ids:
@@ -357,8 +364,8 @@ class ThermostatController:
         if self.hvac_mode in ['heat', 'auto']:
             if system_temp < self.target_temp_heat - self.hysteresis:
                 self._set_hvac_state(heat=True, cool=False, fan=True)
-                # Enable secondary heat if temperature is very low
-                if system_temp < self.target_temp_heat - 3.0:
+                # Enable secondary heat if temperature is very low (3°C below target)
+                if system_temp < self.target_temp_heat - 1.67:  # ~3°F in Celsius
                     self.hvac_state['heat2'] = True
                     if GPIO:
                         GPIO.output(self.gpio_relay_heat2, GPIO.HIGH)
@@ -630,17 +637,17 @@ class ThermostatController:
         try:
             if command == 'set_temperature':
                 temp_type = params.get('type')
-                temperature = params.get('temperature')
+                temperature = params.get('temperature')  # Expects Celsius from web interface
                 
-                # Validate temperature range
-                if temperature < 50 or temperature > 90:
-                    logger.warning(f"Temperature {temperature}°F out of range")
-                    return {'success': False, 'error': 'Temperature out of range (50-90°F)'}
+                # Validate temperature range (10°C to 32°C, roughly 50°F to 90°F)
+                if temperature < 10 or temperature > 32:
+                    logger.warning(f"Temperature {temperature}°C out of range")
+                    return {'success': False, 'error': 'Temperature out of range (10-32°C)'}
                 
                 if temp_type == 'heat':
                     old_temp = self.target_temp_heat
                     self.target_temp_heat = temperature
-                    logger.info(f"Target heat temperature set to {temperature}°F")
+                    logger.info(f"Target heat temperature set to {temperature}°C")
                     
                     # Persist to database and log change
                     if self.db:
@@ -653,7 +660,7 @@ class ThermostatController:
                 elif temp_type == 'cool':
                     old_temp = self.target_temp_cool
                     self.target_temp_cool = temperature
-                    logger.info(f"Target cool temperature set to {temperature}°F")
+                    logger.info(f"Target cool temperature set to {temperature}°C")
                     
                     # Persist to database and log change
                     if self.db:
@@ -666,7 +673,7 @@ class ThermostatController:
                 else:
                     return {'success': False, 'error': 'Invalid temperature type'}
                 
-                return {'success': True, 'message': f'Target {temp_type} temperature set to {temperature}°F'}
+                return {'success': True, 'message': f'Target {temp_type} temperature set to {temperature}°C'}
             
             elif command == 'set_mode':
                 mode = params.get('mode')

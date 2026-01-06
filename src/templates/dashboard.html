@@ -498,6 +498,12 @@
         let currentTargetHeat = 68;
         let currentTargetCool = 74;
 
+            // Global temperature units
+            let temperatureUnits = 'F';
+            let temperatureSymbol = '°F';
+            let tempMin = 50;
+            let tempMax = 90;
+
         function showError(message) {
             const errorEl = document.getElementById('error-message');
             errorEl.textContent = message;
@@ -533,8 +539,8 @@
             const currentTemp = type === 'heat' ? currentTargetHeat : currentTargetCool;
             const newTemp = currentTemp + delta;
 
-            if (newTemp < 50 || newTemp > 90) {
-                showError('Temperature must be between 50°F and 90°F');
+            if (newTemp < tempMin || newTemp > tempMax) {
+                showError(`Temperature must be between ${tempMin}${temperatureSymbol} and ${tempMax}${temperatureSymbol}`);
                 return;
             }
 
@@ -556,7 +562,7 @@
                     currentTargetCool = newTemp;
                 }
 
-                showSuccess(`Target ${type} temperature set to ${newTemp}°F`);
+                showSuccess(`Target ${type} temperature set to ${newTemp.toFixed(1)}${temperatureSymbol}`);
                 updateDashboard();
             } catch (error) {
                 showError(`Failed to set temperature: ${error.message}`);
@@ -624,10 +630,28 @@
                 .then(data => {
                     hideError();
 
+                    // Update temperature units
+                    if (data.temperature_units) {
+                        temperatureUnits = data.temperature_units;
+                        temperatureSymbol = data.temperature_symbol || '°F';
+
+                        // Update temperature range based on units
+                        if (temperatureUnits === 'F') {
+                            tempMin = 50;
+                            tempMax = 90;
+                        } else if (temperatureUnits === 'C') {
+                            tempMin = 10;
+                            tempMax = 32;
+                        } else { // Kelvin
+                            tempMin = 283;
+                            tempMax = 305;
+                        }
+                    }
+
                     // Update system temperature
                     const systemTemp = data.system_temp;
                     document.getElementById('system-temp').textContent = 
-                        systemTemp !== null ? `${systemTemp.toFixed(1)}°F` : '--';
+                        systemTemp !== null ? `${systemTemp.toFixed(1)}${temperatureSymbol}` : '--';
 
                     // Update HVAC mode
                     currentMode = (data.hvac_mode || 'off').toLowerCase();
@@ -654,8 +678,8 @@
                     // Update target temperatures
                     currentTargetHeat = data.target_temp_heat || 68;
                     currentTargetCool = data.target_temp_cool || 74;
-                    document.getElementById('target-heat').textContent = `${currentTargetHeat}°F`;
-                    document.getElementById('target-cool').textContent = `${currentTargetCool}°F`;
+                    document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
+                    document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
 
                     // Update fan toggle
                     const fanToggle = document.getElementById('fan-toggle');
@@ -698,7 +722,7 @@
                             ${reading.name}
                             ${isCompromised ? '<span class="warning-icon">⚠️</span>' : ''}
                         </span>
-                        <span class="sensor-temp">${reading.temperature.toFixed(1)}°F</span>
+                        <span class="sensor-temp">${reading.temperature.toFixed(1)}${temperatureSymbol}</span>
                     </li>
                 `;
             }).join('');

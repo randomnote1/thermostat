@@ -49,6 +49,7 @@ class ThermostatDatabase:
                     target_temp_cool REAL NOT NULL,
                     hvac_mode TEXT NOT NULL,
                     fan_mode TEXT DEFAULT 'auto',
+                    temperature_units TEXT DEFAULT 'F',
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -147,16 +148,17 @@ class ThermostatDatabase:
     # ==================== SETTINGS ====================
     
     def save_settings(self, target_temp_heat: float, target_temp_cool: float, 
-                     hvac_mode: str, fan_mode: str = 'auto') -> None:
+                     hvac_mode: str, fan_mode: str = 'auto', 
+                     temperature_units: str = 'F') -> None:
         """Save current thermostat settings"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT OR REPLACE INTO settings (id, target_temp_heat, target_temp_cool, 
-                                                hvac_mode, fan_mode, updated_at)
-                VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ''', (target_temp_heat, target_temp_cool, hvac_mode, fan_mode))
-            logger.debug(f"Settings saved: heat={target_temp_heat}, cool={target_temp_cool}, mode={hvac_mode}")
+                                                hvac_mode, fan_mode, temperature_units, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (target_temp_heat, target_temp_cool, hvac_mode, fan_mode, temperature_units))
+            logger.debug(f"Settings saved: heat={target_temp_heat}, cool={target_temp_cool}, mode={hvac_mode}, units={temperature_units}")
     
     def load_settings(self) -> Optional[Dict]:
         """Load current thermostat settings"""
@@ -171,6 +173,7 @@ class ThermostatDatabase:
                     'target_temp_cool': row['target_temp_cool'],
                     'hvac_mode': row['hvac_mode'],
                     'fan_mode': row['fan_mode'],
+                    'temperature_units': row.get('temperature_units', 'F'),
                     'updated_at': row['updated_at']
                 }
             return None

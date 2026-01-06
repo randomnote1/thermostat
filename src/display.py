@@ -17,15 +17,20 @@ except ImportError:
     DISPLAY_AVAILABLE = False
     print("Warning: Waveshare EPD library not available")
 
+# Import temperature conversion utilities
+from temperature_utils import convert_temperature, get_unit_symbol
+
 
 class ThermostatDisplay:
     """Manages the e-ink display for the thermostat"""
     
-    def __init__(self):
+    def __init__(self, database=None):
         self.display_type = os.getenv('DISPLAY_TYPE', 'waveshare_2in13_v2')
         self.width = 250
         self.height = 122
         self.epd = None
+        self.db = database
+        self.temperature_units = 'F'  # Default to Fahrenheit
         
         if DISPLAY_AVAILABLE:
             try:
@@ -57,18 +62,37 @@ class ThermostatDisplay:
     def create_display_image(self, system_temp: float, target_temp: float, 
                             hvac_state: Dict, sensor_readings: List,
                             compromised_sensors: List[str]) -> Image:
-        """Create an image for the display"""
+        """Create an image for the display
+        
+        Args:
+            system_temp: System temperature in Celsius
+            target_temp: Target temperature in Celsius
+            hvac_state: Current HVAC state
+            sensor_readings: List of sensor readings (in Celsius)
+            compromised_sensors: List of compromised sensor IDs
+        """
+        # Load current temperature unit preference
+        if self.db:
+            settings = self.db.load_settings()
+            if settings:
+                self.temperature_units = settings.get('temperature_units', 'F')
+        
+        # Convert temperatures for display
+        display_system_temp = convert_temperature(system_temp, 'C', self.temperature_units)
+        display_target_temp = convert_temperature(target_temp, 'C', self.temperature_units)
+        unit_symbol = get_unit_symbol(self.temperature_units)
+        
         # Create blank image (note: rotated 90 degrees for landscape)
         image = Image.new('1', (self.height, self.width), 255)
         draw = ImageDraw.Draw(image)
         
         # Current temperature (large, centered top)
-        temp_str = f"{system_temp:.1f}"
+        temp_str = f"{display_system_temp:.1f}"
         draw.text((10, 5), temp_str, font=self.font_large, fill=0)
-        draw.text((90, 20), "°F", font=self.font_small, fill=0)
+        draw.text((90, 20), unit_symbol, font=self.font_small, fill=0)
         
         # Target temperature
-        target_str = f"Target: {target_temp:.1f}°F"
+        target_str = f"Target: {display_target_temp:.1f}{unit_symbol}"
         draw.text((10, 45), target_str, font=self.font_small, fill=0)
         
         # HVAC status
@@ -88,12 +112,13 @@ class ThermostatDisplay:
         y_pos = 90
         for reading in sensor_readings[:5]:  # Show up to 5 sensors
             sensor_name = reading.name[:10]  # Truncate long names
-            temp = reading.temperature
+            temp_celsius = reading.temperature
+            temp_display = convert_temperature(temp_celsius, 'C', self.temperature_units)
             
             # Mark compromised sensors
             marker = "!" if reading.sensor_id in compromised_sensors else " "
             
-            text = f"{marker}{sensor_name}: {temp:.1f}°F"
+            text = f"{marker}{sensor_name}: {temp_display:.1f}{unit_symbol}"
             draw.text((10, y_pos), text, font=self.font_tiny, fill=0)
             y_pos += 12
         
