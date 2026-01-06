@@ -114,6 +114,37 @@ def migrate_database(db_path='thermostat.db'):
     
     if migrated_schedules > 0:
         print(f"\n✅ Migrated {migrated_schedules} schedule(s)")
+    
+    # Migrate sensor history
+    print("\nMigrating sensor history...")
+    with db._get_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Get sample of recent sensor readings to check if migration needed
+        cursor.execute("SELECT temperature FROM sensor_history LIMIT 100")
+        temps = [row[0] for row in cursor.fetchall()]
+        
+        if temps:
+            avg_temp = sum(temps) / len(temps)
+            
+            # If average temperature is > 40, assume Fahrenheit
+            if avg_temp > 40:
+                print(f"  Sensor history appears to be in Fahrenheit (avg: {avg_temp:.1f})")
+                print("  Converting all sensor readings to Celsius...")
+                
+                # Convert all sensor readings
+                cursor.execute("""
+                    UPDATE sensor_history 
+                    SET temperature = (temperature - 32.0) * 5.0 / 9.0
+                """)
+                
+                rows_updated = cursor.rowcount
+                conn.commit()
+                print(f"  ✅ Converted {rows_updated} sensor readings")
+            else:
+                print(f"  ✅ Sensor history already in Celsius (avg: {avg_temp:.1f}°C)")
+        else:
+            print("  No sensor history found")
 
 
 if __name__ == '__main__':
