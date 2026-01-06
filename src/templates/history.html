@@ -597,6 +597,9 @@
                         const color = colors[index % colors.length];
                         const data = sensorData[sensorName];
 
+                        // For single sensor, remove fill to show std dev shading
+                        const isSingleSensor = selectedSensor !== 'all' && Object.keys(sensorData).length === 1;
+
                         return {
                             label: sensorName,
                             data: data.timestamps.map((timestamp, i) => ({
@@ -606,7 +609,7 @@
                             backgroundColor: color.bg,
                             borderColor: color.border,
                             borderWidth: 2,
-                            fill: true,
+                            fill: !isSingleSensor,
                             tension: 0.4,
                             pointRadius: 3,
                             pointHoverRadius: 5
@@ -671,10 +674,10 @@
                             pointHoverRadius: 0
                         });
 
-                        // Add standard deviation upper bound
+                        // Add standard deviation lower bound (drawn first for fill order)
                         datasets.push({
-                            label: '+1 StdDev (±' + stdDev.toFixed(1) + '°F)',
-                            data: stdDevUpperData,
+                            label: '-1 StdDev',
+                            data: stdDevLowerData,
                             backgroundColor: 'transparent',
                             borderColor: 'rgba(168, 85, 247, 0.6)',
                             borderWidth: 1.5,
@@ -685,15 +688,15 @@
                             pointHoverRadius: 0
                         });
 
-                        // Add standard deviation lower bound
+                        // Add standard deviation upper bound with fill to lower bound
                         datasets.push({
-                            label: '-1 StdDev',
-                            data: stdDevLowerData,
-                            backgroundColor: 'transparent',
+                            label: '+1 StdDev (±' + stdDev.toFixed(1) + '°F)',
+                            data: stdDevUpperData,
+                            backgroundColor: 'rgba(168, 85, 247, 0.15)',
                             borderColor: 'rgba(168, 85, 247, 0.6)',
                             borderWidth: 1.5,
                             borderDash: [3, 3],
-                            fill: false,
+                            fill: '-1',
                             tension: 0,
                             pointRadius: 0,
                             pointHoverRadius: 0
