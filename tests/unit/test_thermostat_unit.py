@@ -47,6 +47,11 @@ class TestThermostatController(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment before each test"""
+        import tempfile
+        # Create temporary database for tests
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
         # Mock environment variables
         self.env_patcher = patch.dict(os.environ, {
             'TARGET_TEMP_HEAT': '68.0',
@@ -68,17 +73,30 @@ class TestThermostatController(unittest.TestCase):
             'SENSOR_BEDROOM': 'sensor2',
             'LOG_LEVEL': 'ERROR',
             'LOG_FILE': '/tmp/test.log',
-            'DATABASE_PATH': ''  # Disable database for unit tests
+            'DATABASE_PATH': self.temp_db.name
         })
         self.env_patcher.start()
         
         # Create controller with mocked GPIO
         with patch('thermostat.GPIO', None):
             self.controller = ThermostatController()
+        
+        # Add test sensors to database
+        if self.controller.db:
+            self.controller.db.add_sensor('sensor1', 'Living Room', enabled=True, monitored=True)
+            self.controller.db.add_sensor('sensor2', 'Bedroom', enabled=True, monitored=True)
+            self.controller._load_sensors_from_database()
     
     def tearDown(self):
         """Clean up after each test"""
         self.env_patcher.stop()
+        # Clean up temp database
+        import os
+        if hasattr(self, 'temp_db') and os.path.exists(self.temp_db.name):
+            try:
+                os.unlink(self.temp_db.name)
+            except:
+                pass
     
     def test_initialization(self):
         """Test controller initializes with correct config"""
@@ -484,15 +502,17 @@ class TestThermostatController(unittest.TestCase):
         self.assertFalse(result['success'])
         self.assertIn('Unknown command', result['error'])
     
-    def test_load_sensor_map_from_environment(self):
-        """Test loading sensor map from environment variables"""
-        sensor_map = self.controller._load_sensor_map()
+    def test_load_sensor_map_from_database(self):
+        """Test loading sensor map from database"""
+        # Verify sensors were loaded from database during setup
+        self.assertIn('sensor1', self.controller.sensor_map)
+        self.assertIn('sensor2', self.controller.sensor_map)
+        self.assertEqual(self.controller.sensor_map['sensor1'], 'Living Room')
+        self.assertEqual(self.controller.sensor_map['sensor2'], 'Bedroom')
         
-        # Should find SENSOR_LIVING_ROOM and SENSOR_BEDROOM from env
-        self.assertIn('sensor1', sensor_map)
-        self.assertIn('sensor2', sensor_map)
-        self.assertEqual(sensor_map['sensor1'], 'Living Room')
-        self.assertEqual(sensor_map['sensor2'], 'Bedroom')
+        # Verify monitored sensors list
+        self.assertIn('sensor1', self.controller.monitored_sensors)
+        self.assertIn('sensor2', self.controller.monitored_sensors)
     
     def test_cleanup_turns_off_relays(self):
         """Test cleanup method turns off all relays"""

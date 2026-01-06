@@ -27,10 +27,14 @@ class TestSensorReadingPaths(unittest.TestCase):
     
     def setUp(self):
         """Set up test environment"""
+        # Create temporary database for tests
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
         self.env_patcher = patch.dict(os.environ, {
             'TARGET_TEMP_HEAT': '68.0',
             'TARGET_TEMP_COOL': '74.0',
-            'DATABASE_PATH': '',
+            'DATABASE_PATH': self.temp_db.name,
             'LOG_LEVEL': 'ERROR',
             'GPIO_RELAY_HEAT': '17',
             'GPIO_RELAY_COOL': '27',
@@ -45,12 +49,24 @@ class TestSensorReadingPaths(unittest.TestCase):
     def tearDown(self):
         """Clean up"""
         self.env_patcher.stop()
+        # Clean up temp database
+        if hasattr(self, 'temp_db') and os.path.exists(self.temp_db.name):
+            try:
+                os.unlink(self.temp_db.name)
+            except:
+                pass
     
     def test_read_sensors_development_mode(self):
         """Test sensor reading in development mode (no hardware)"""
         with patch('thermostat.GPIO', None):
             with patch('thermostat.W1ThermSensor', None):
                 controller = ThermostatController()
+                
+                # Add test sensors to database
+                if controller.db:
+                    controller.db.add_sensor('test_sensor1', 'Test Room 1', enabled=True, monitored=True)
+                    controller.db.add_sensor('test_sensor2', 'Test Room 2', enabled=True, monitored=True)
+                    controller._load_sensors_from_database()
                 
                 # Should return mock data in Celsius
                 readings = controller.read_sensors()
