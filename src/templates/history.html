@@ -630,7 +630,8 @@
                     aggregatedStdDevs.push(stdDev);
                 });
 
-                ret       timestamps: aggregatedTimestamps, 
+                return { 
+                    timestamps: aggregatedTimestamps, 
                     temperatures: aggregatedTemperatures,
                     stdDevs: aggregatedStdDevs
                 };
@@ -837,7 +838,7 @@
                                 data: stdDevLowerData,
                                 backgroundColor: 'transparent',
                                 borderColor: 'rgba(168, 85, 247, 0.6)',
-    1.5,
+                                borderWidth: 1.5,
                                 borderDash: [3, 3],
                                 fill: false,
                                 tension: 0.4,
