@@ -398,8 +398,14 @@
                 // Show selected tab content
                 document.getElementById(`tab-${tabName}`).classList.add('active');
 
-                // Activate selected tab button
-                event.target.classList.add('active');
+                // Activate the correct button based on tab name
+                const buttonIndex = ['stats', 'settings', 'hvac', 'sensors'].indexOf(tabName);
+                if (buttonIndex >= 0) {
+                    buttons[buttonIndex].classList.add('active');
+                }
+
+                // Update URL fragment without scrolling
+                window.history.replaceState(null, null, `#${tabName}`);
 
                 // Load data for the selected tab if not already loaded
                 if (tabName === 'stats') {
@@ -412,6 +418,19 @@
                     loadSensorHistory();
                 }
             }
+
+            // Check URL fragment on page load
+            window.addEventListener('DOMContentLoaded', () => {
+                const hash = window.location.hash.substring(1); // Remove the #
+                const validTabs = ['stats', 'settings', 'hvac', 'sensors'];
+                
+                if (hash && validTabs.includes(hash)) {
+                    switchTab(hash);
+                } else {
+                    // Default to stats tab
+                    loadDatabaseStats();
+                }
+            });
 
         function formatDateTime(timestamp) {
             const date = new Date(timestamp);
@@ -1047,9 +1066,6 @@
                     console.error('Error creating sensor chart:', error);
                 }
             }
-
-        // Load all data on page load
-            loadDatabaseStats();
 
             // Auto-refresh current tab every 30 seconds
         setInterval(() => {
