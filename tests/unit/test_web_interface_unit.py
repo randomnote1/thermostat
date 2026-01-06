@@ -363,5 +363,130 @@ class TestHistoryEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
 
 
+class TestErrorHandling(unittest.TestCase):
+    """Test error handling in web interface"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Reset database to None
+        import web_interface
+        web_interface.database = None
+    
+    def test_control_without_callback(self):
+        """Test control endpoints without callback configured"""
+        set_control_callback(None)
+        
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 70})
+        self.assertEqual(response.status_code, 503)
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_control_invalid_temperature_range(self):
+        """Test setting temperature outside valid range"""
+        callback = MagicMock(return_value={'success': True})
+        set_control_callback(callback)
+        
+        # Too low (below 50°F)
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 45})
+        self.assertEqual(response.status_code, 400)
+        
+        # Too high (above 90°F)
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'cool', 'temperature': 95})
+        self.assertEqual(response.status_code, 400)
+    
+    def test_control_invalid_mode(self):
+        """Test setting invalid HVAC mode"""
+        callback = MagicMock(return_value={'success': True})
+        set_control_callback(callback)
+        
+        response = self.client.post('/api/control/mode',
+                                   json={'mode': 'turbo'})
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_control_exception_handling(self):
+        """Test exception handling in control endpoints"""
+        callback = MagicMock(side_effect=Exception("Test error"))
+        set_control_callback(callback)
+        
+        response = self.client.post('/api/control/fan',
+                                   json={'fan_on': True})
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_schedule_without_database(self):
+        """Test schedule endpoints without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/schedules')
+        self.assertEqual(response.status_code, 503)
+        
+        response = self.client.post('/api/schedules',
+                                   json={'name': 'Test', 'enabled': True})
+        self.assertEqual(response.status_code, 503)
+    
+    def test_schedule_exception_handling(self):
+        """Test exception handling in schedule endpoints"""
+        # Create a mock database that raises an exception
+        mock_db = MagicMock()
+        mock_db.create_schedule.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.post('/api/schedules',
+                                   json={
+                                       'name': 'Test Schedule',
+                                       'enabled': True,
+                                       'days': [0, 1, 2, 3, 4],
+                                       'time': '08:00',
+                                       'settings': {}
+                                   })
+        self.assertEqual(response.status_code, 400)
+    
+    def test_sensors_endpoint(self):
+        """Test sensors endpoint with sensor data"""
+        # Update state with sensor readings
+        update_state({
+            'sensor_readings': [
+                {'id': 's1', 'name': 'Living Room', 'temperature': 72.0, 'timestamp': datetime.now().isoformat()},
+                {'id': 's2', 'name': 'Bedroom', 'temperature': 70.0, 'timestamp': datetime.now().isoformat()}
+            ]
+        })
+        
+        response = self.client.get('/api/sensors')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIn('sensors', data)
+        self.assertEqual(len(data['sensors']), 2)
+    
+    def test_hvac_state_in_status(self):
+        """Test HVAC state is included in status endpoint"""
+        update_state({
+            'hvac_state': {
+                'heat': True,
+                'cool': False,
+                'fan': True,
+                'heat2': False
+            }
+        })
+        
+        response = self.client.get('/api/status')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIn('hvac_state', data)
+        self.assertTrue(data['hvac_state']['heat'])
+        self.assertFalse(data['hvac_state']['cool'])
+        self.assertTrue(data['hvac_state']['fan'])
+
+
 if __name__ == '__main__':
     unittest.main()
