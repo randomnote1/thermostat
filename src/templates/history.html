@@ -696,8 +696,9 @@
                         const color = colors[index % colors.length];
                         const data = sensorData[sensorName];
 
-                        // For single sensor, remove fill to show std dev shading
+                        // For single sensor or when all sensors with std dev, remove fill to show std dev shading
                         const isSingleSensor = selectedSensor !== 'all' && Object.keys(sensorData).length === 1;
+                        const isMultiSensorWithStdDev = selectedSensor === 'all' && Object.keys(sensorData).length > 1;
 
                         return {
                             label: sensorName,
@@ -708,12 +709,105 @@
                             backgroundColor: color.bg,
                             borderColor: color.border,
                             borderWidth: 2,
-                            fill: !isSingleSensor,
+                            fill: !isSingleSensor && !isMultiSensorWithStdDev,
                             tension: 0.4,
                             pointRadius: 3,
                             pointHoverRadius: 5
                         };
                     });
+
+                    // Add standard deviation for all sensors (when "All Sensors" is selected)
+                    if (selectedSensor === 'all' && Object.keys(sensorData).length > 1) {
+                        Object.keys(sensorData).forEach((sensorName, index) => {
+                            const color = colors[index % colors.length];
+                            const data = sensorData[sensorName];
+                            const temps = data.temperatures;
+
+                            // For aggregated data, use per-bucket std dev
+                            if (aggregationInterval > 0 && data.stdDevs) {
+                                const stdDevUpperData = data.timestamps.map((timestamp, i) => ({
+                                    x: timestamp,
+                                    y: data.temperatures[i] + data.stdDevs[i]
+                                }));
+                                
+                                const stdDevLowerData = data.timestamps.map((timestamp, i) => ({
+                                    x: timestamp,
+                                    y: data.temperatures[i] - data.stdDevs[i]
+                                }));
+                                
+                                // Add lower bound
+                                datasets.push({
+                                    label: sensorName + ' -1 StdDev',
+                                    data: stdDevLowerData,
+                                    backgroundColor: 'transparent',
+                                    borderColor: color.border.replace('1)', '0.3)'),
+                                    borderWidth: 1,
+                                    borderDash: [3, 3],
+                                    fill: false,
+                                    tension: 0.4,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0
+                                });
+                                
+                                // Add upper bound with fill
+                                datasets.push({
+                                    label: sensorName + ' +1 StdDev',
+                                    data: stdDevUpperData,
+                                    backgroundColor: color.bg.replace('0.2)', '0.15)'),
+                                    borderColor: color.border.replace('1)', '0.3)'),
+                                    borderWidth: 1,
+                                    borderDash: [3, 3],
+                                    fill: '-1',
+                                    tension: 0.4,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0
+                                });
+                            } else {
+                                // For raw data, calculate overall std dev
+                                const mean = temps.reduce((a, b) => a + b, 0) / temps.length;
+                                const variance = temps.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / temps.length;
+                                const stdDev = Math.sqrt(variance);
+                                
+                                const stdDevLowerData = data.timestamps.map(timestamp => ({
+                                    x: timestamp,
+                                    y: mean - stdDev
+                                }));
+                                
+                                const stdDevUpperData = data.timestamps.map(timestamp => ({
+                                    x: timestamp,
+                                    y: mean + stdDev
+                                }));
+                                
+                                // Add lower bound
+                                datasets.push({
+                                    label: sensorName + ' -1 StdDev',
+                                    data: stdDevLowerData,
+                                    backgroundColor: 'transparent',
+                                    borderColor: color.border.replace('1)', '0.3)'),
+                                    borderWidth: 1.5,
+                                    borderDash: [3, 3],
+                                    fill: false,
+                                    tension: 0,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0
+                                });
+                                
+                                // Add upper bound with fill
+                                datasets.push({
+                                    label: sensorName + ' +1 StdDev',
+                                    data: stdDevUpperData,
+                                    backgroundColor: color.bg.replace('0.2)', '0.15)'),
+                                    borderColor: color.border.replace('1)', '0.3)'),
+                                    borderWidth: 1.5,
+                                    borderDash: [3, 3],
+                                    fill: '-1',
+                                    tension: 0,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 0
+                                });
+                            }
+                        });
+                    }
 
                     // Add average and trend line if single sensor is selected AND not aggregated
                     if (selectedSensor !== 'all' && Object.keys(sensorData).length === 1 && aggregationInterval === 0) {
