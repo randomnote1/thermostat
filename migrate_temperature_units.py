@@ -145,6 +145,39 @@ def migrate_database(db_path='thermostat.db'):
                 print(f"  ✅ Sensor history already in Celsius (avg: {avg_temp:.1f}°C)")
         else:
             print("  No sensor history found")
+    
+    # Migrate HVAC history
+    print("\nMigrating HVAC history...")
+    with db._get_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Get sample of recent HVAC readings to check if migration needed
+        cursor.execute("SELECT system_temp FROM hvac_history WHERE system_temp IS NOT NULL LIMIT 100")
+        temps = [row[0] for row in cursor.fetchall()]
+        
+        if temps:
+            avg_temp = sum(temps) / len(temps)
+            
+            # If average temperature is > 40, assume Fahrenheit
+            if avg_temp > 40:
+                print(f"  HVAC history appears to be in Fahrenheit (avg: {avg_temp:.1f})")
+                print("  Converting all HVAC system_temp and target_temp readings...")
+                
+                # Convert system_temp and target_temp
+                cursor.execute("""
+                    UPDATE hvac_history 
+                    SET system_temp = (system_temp - 32.0) * 5.0 / 9.0,
+                        target_temp = (target_temp - 32.0) * 5.0 / 9.0
+                    WHERE system_temp IS NOT NULL
+                """)
+                
+                rows_updated = cursor.rowcount
+                conn.commit()
+                print(f"  ✅ Converted {rows_updated} HVAC history records")
+            else:
+                print(f"  ✅ HVAC history already in Celsius (avg: {avg_temp:.1f}°C)")
+        else:
+            print("  No HVAC history found")
 
 
 if __name__ == '__main__':
