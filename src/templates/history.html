@@ -788,8 +788,7 @@
                             fill: false,
                             tension: 0,
                             pointRadius: 0,
-                            pointHoverRadius: 0,
-                            legend: {display: false}
+                            pointHoverRadius: 0
                         });
 
                         // Add standard deviation upper bound with fill to lower bound
@@ -803,8 +802,7 @@
                             fill: '-1',
                             tension: 0,
                             pointRadius: 0,
-                            pointHoverRadius: 0,
-                            legend: {display: false}
+                            pointHoverRadius: 0
                         });
 
                         // Add trend line dataset
@@ -853,9 +851,7 @@
                                 fill: false,
                                 tension: 0.4,
                                 pointRadius: 0,
-                                pointHoverRadius: 0,
-                                hidden: false,
-                                legend: {display: false}
+                                pointHoverRadius: 0
                             });
                             
                             // Add upper bound with fill (hidden from legend)
@@ -869,9 +865,7 @@
                                 fill: '-1',
                                 tension: 0.4,
                                 pointRadius: 0,
-                                pointHoverRadius: 0,
-                                hidden: false,
-                                legend: {display: false}
+                                pointHoverRadius: 0
                             });
                         }
                     }
@@ -895,7 +889,8 @@
                                     labels: {
                                         font: { size: 12 },
                                         padding: 15,
-                                        usePointStyle: true
+                                        usePointStyle: true,
+                                        filter: function(legendItem, chartData) { return !legendItem.text.includes('StdDev'); }
                                     }
                                 },
                                 title: {
