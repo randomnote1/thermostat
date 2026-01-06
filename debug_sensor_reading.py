@@ -1,6 +1,8 @@
-#!/usr/bin/env python3
+#!/home/pi/thermostat/venv/bin/python3
 """
 Debug script to check what temperature sensors are actually returning
+Run with: ./debug_sensor_reading.py
+Or: ~/thermostat/venv/bin/python3 debug_sensor_reading.py
 """
 
 try:
