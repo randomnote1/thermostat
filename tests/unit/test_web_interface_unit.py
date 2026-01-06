@@ -296,6 +296,87 @@ class TestScheduleEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
 
 
+class TestScheduleExceptionHandling(unittest.TestCase):
+    """Test schedule endpoint exception handling"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+    
+    def test_create_schedule_exception(self):
+        """Test exception handling when creating schedule"""
+        mock_db = MagicMock()
+        mock_db.create_schedule.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.post('/api/schedules',
+                                   json={
+                                       'name': 'Test',
+                                       'days_of_week': '1,2,3',
+                                       'time': '08:00'
+                                   })
+        self.assertEqual(response.status_code, 400)
+    
+    def test_get_schedules_exception(self):
+        """Test exception handling when getting schedules"""
+        mock_db = MagicMock()
+        mock_db.get_schedules.side_effect = Exception("Database error")
+        mock_db.load_settings.return_value = {'temperature_units': 'F'}
+        set_database(mock_db)
+        
+        response = self.client.get('/api/schedules')
+        self.assertEqual(response.status_code, 500)
+    
+    def test_update_schedule_exception(self):
+        """Test exception handling when updating schedule"""
+        mock_db = MagicMock()
+        mock_db.update_schedule.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.put('/api/schedules/1',
+                                   json={'name': 'Updated'})
+        self.assertEqual(response.status_code, 400)
+    
+    def test_delete_schedule_exception(self):
+        """Test exception handling when deleting schedule"""
+        mock_db = MagicMock()
+        mock_db.delete_schedule.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.delete('/api/schedules/1')
+        self.assertEqual(response.status_code, 400)
+    
+    def test_schedule_without_database_create(self):
+        """Test creating schedule without database"""
+        set_database(None)
+        
+        response = self.client.post('/api/schedules', json={})
+        self.assertEqual(response.status_code, 503)
+    
+    def test_schedule_without_database_update(self):
+        """Test updating schedule without database"""
+        set_database(None)
+        
+        response = self.client.put('/api/schedules/1', json={})
+        self.assertEqual(response.status_code, 503)
+    
+    def test_schedule_without_database_delete(self):
+        """Test deleting schedule without database"""
+        set_database(None)
+        
+        response = self.client.delete('/api/schedules/1')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_schedule_control_without_callback(self):
+        """Test schedule control without callback"""
+        set_control_callback(None)
+        
+        response = self.client.post('/api/schedules/control',
+                                   json={'action': 'resume'})
+        self.assertEqual(response.status_code, 503)
+
+
 class TestHistoryEndpoints(unittest.TestCase):
     """Test history API endpoints"""
     
@@ -434,6 +515,84 @@ class TestAPIEndpoints(unittest.TestCase):
         response = self.client.post('/api/control/units',
                                    json={'units': 'C'})
         self.assertEqual(response.status_code, 503)
+    
+    def test_control_units_exception_handling(self):
+        """Test units endpoint exception handling"""
+        # Create a mock database that raises an exception
+        mock_db = MagicMock()
+        mock_db.load_settings.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.post('/api/control/units',
+                                   json={'units': 'C'})
+        self.assertEqual(response.status_code, 500)
+    
+    def test_control_units_no_settings(self):
+        """Test units endpoint when no settings exist"""
+        # Mock database that returns None for settings
+        mock_db = MagicMock()
+        mock_db.load_settings.return_value = None
+        set_database(mock_db)
+        
+        response = self.client.post('/api/control/units',
+                                   json={'units': 'F'})
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+        self.assertIn('settings', data['error'].lower())
+    
+    def test_sensors_list_endpoint(self):
+        """Test listing sensors from database"""
+        # Add some sensors to database
+        self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        self.db.add_sensor('28-0002', 'Bedroom', enabled=False, monitored=False)
+        
+        response = self.client.get('/api/sensors/config')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertIn('sensors', data)
+        self.assertEqual(len(data['sensors']), 2)
+    
+    def test_sensors_list_without_database(self):
+        """Test sensors list without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/sensors/config')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_sensor_update_endpoint(self):
+        """Test updating sensor configuration"""
+        # Add a sensor first
+        self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        
+        # Update the sensor
+        response = self.client.put('/api/sensors/config/28-0001',
+                                   json={
+                                       'name': 'Family Room',
+                                       'enabled': False,
+                                       'monitored': False
+                                   })
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify update
+        sensor = self.db.get_sensor('28-0001')
+        self.assertEqual(sensor['name'], 'Family Room')
+        self.assertFalse(sensor['enabled'])
+    
+    def test_sensor_update_not_found(self):
+        """Test updating non-existent sensor"""
+        response = self.client.put('/api/sensors/config/28-9999',
+                                   json={'name': 'Test'})
+        self.assertEqual(response.status_code, 404)
+    
+    def test_sensor_update_without_database(self):
+        """Test sensor update without database"""
+        set_database(None)
+        
+        response = self.client.put('/api/sensors/config/28-0001',
+                                   json={'name': 'Test'})
+        self.assertEqual(response.status_code, 503)
 
 
 class TestErrorHandling(unittest.TestCase):
@@ -559,6 +718,415 @@ class TestErrorHandling(unittest.TestCase):
         self.assertTrue(data['hvac_state']['heat'])
         self.assertFalse(data['hvac_state']['cool'])
         self.assertTrue(data['hvac_state']['fan'])
+
+
+class TestTemperatureUnitConversions(unittest.TestCase):
+    """Test temperature unit conversions in API responses"""
+    
+    def setUp(self):
+        """Set up test client with database"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Create temp database
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        from database import ThermostatDatabase
+        self.db = ThermostatDatabase(self.temp_db.name)
+        set_database(self.db)
+        
+        # Add units setting via save_settings
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'C')
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_status_with_celsius_conversion(self):
+        """Test status endpoint converts temperatures to Celsius when units='C'"""
+        update_state({
+            'system_temp': 20.0,  # Celsius internally
+            'target_temp_heat': 18.0,
+            'sensor_readings': [
+                {'sensor_id': '28-0001', 'temperature': 19.5, 'compromised': False}
+            ]
+        })
+        
+        response = self.client.get('/api/status')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        # Should stay in Celsius
+        self.assertAlmostEqual(data['system_temp'], 20.0, places=1)
+        self.assertEqual(len(data['sensor_readings']), 1)
+        self.assertAlmostEqual(data['sensor_readings'][0]['temperature'], 19.5, places=1)
+    
+    def test_status_with_kelvin_conversion(self):
+        """Test status endpoint converts temperatures to Kelvin when units='K'"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'K')
+        
+        update_state({
+            'system_temp': 20.0,  # Celsius internally
+            'sensor_readings': [
+                {'sensor_id': '28-0001', 'temperature': 19.5, 'compromised': False}
+            ]
+        })
+        
+        response = self.client.get('/api/status')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        # Should convert to Kelvin (20°C = 293.15K)
+        self.assertAlmostEqual(data['system_temp'], 293.15, places=1)
+        self.assertAlmostEqual(data['sensor_readings'][0]['temperature'], 292.65, places=1)
+    
+    def test_control_temperature_celsius_validation(self):
+        """Test temperature validation for Celsius units"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'C')
+        
+        # Mock control callback
+        control_callback = MagicMock(return_value={'success': True})
+        set_control_callback(control_callback)
+        
+        # Try to set valid Celsius temperature
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 20})
+        self.assertEqual(response.status_code, 200)
+        
+        # Try to set temperature out of range for Celsius (should be 10-32)
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 5})
+        self.assertEqual(response.status_code, 400)
+    
+    def test_control_temperature_kelvin_validation(self):
+        """Test temperature validation for Kelvin units"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'K')
+        
+        # Mock control callback
+        control_callback = MagicMock(return_value={'success': True})
+        set_control_callback(control_callback)
+        
+        # Try to set valid Kelvin temperature
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 293})
+        self.assertEqual(response.status_code, 200)
+        
+        # Try to set temperature out of range for Kelvin (should be 283-305)
+        response = self.client.post('/api/control/temperature',
+                                   json={'type': 'heat', 'temperature': 250})
+        self.assertEqual(response.status_code, 400)
+    
+    def test_schedule_create_with_unit_conversion(self):
+        """Test schedule creation converts temperatures from display units to Celsius"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'F')
+        
+        response = self.client.post('/api/schedules',
+                                   json={
+                                       'name': 'Test',
+                                       'days_of_week': '0,1,2',
+                                       'time': '08:00',
+                                       'target_temp_heat': 70.0,  # Fahrenheit
+                                       'target_temp_cool': 75.0,  # Fahrenheit
+                                       'hvac_mode': 'auto'
+                                   })
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify stored in Celsius
+        schedules = self.db.get_schedules()
+        self.assertEqual(len(schedules), 1)
+        # 70°F ≈ 21.1°C, 75°F ≈ 23.9°C
+        self.assertAlmostEqual(schedules[0]['target_temp_heat'], 21.1, places=1)
+        self.assertAlmostEqual(schedules[0]['target_temp_cool'], 23.9, places=1)
+    
+    def test_schedule_update_with_unit_conversion(self):
+        """Test schedule update converts temperatures from display units"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'F')
+        
+        # Create schedule in Celsius
+        schedule_id = self.db.create_schedule("Test", "0,1", "08:00", 20.0, 25.0, "auto")
+        
+        # Update with Fahrenheit values
+        response = self.client.put(f'/api/schedules/{schedule_id}',
+                                  json={
+                                      'target_temp_heat': 72.0,  # Fahrenheit
+                                      'target_temp_cool': 78.0   # Fahrenheit
+                                  })
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify stored in Celsius
+        schedules = self.db.get_schedules()
+        updated = [s for s in schedules if s['id'] == schedule_id][0]
+        # 72°F ≈ 22.2°C, 78°F ≈ 25.6°C
+        self.assertAlmostEqual(updated['target_temp_heat'], 22.2, places=1)
+        self.assertAlmostEqual(updated['target_temp_cool'], 25.6, places=1)
+    
+    def test_schedules_get_with_unit_conversion(self):
+        """Test getting schedules converts to display units"""
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'F')
+        
+        # Create schedule in Celsius (internal storage)
+        self.db.create_schedule("Test", "0,1", "08:00", 20.0, 25.0, "auto")
+        
+        response = self.client.get('/api/schedules')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        schedules = data['schedules']
+        self.assertEqual(len(schedules), 1)
+        
+        # Should be converted to Fahrenheit
+        # 20°C ≈ 68°F, 25°C ≈ 77°F
+        self.assertAlmostEqual(schedules[0]['target_temp_heat'], 68.0, places=0)
+        self.assertAlmostEqual(schedules[0]['target_temp_cool'], 77.0, places=0)
+
+
+class TestSensorHistoryEndpoints(unittest.TestCase):
+    """Test sensor history database endpoints"""
+    
+    def setUp(self):
+        """Set up test client with database"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Create temp database
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        from database import ThermostatDatabase
+        self.db = ThermostatDatabase(self.temp_db.name)
+        set_database(self.db)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_history_sensors_without_database(self):
+        """Test /api/history/sensors returns 503 without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/history/sensors')
+        self.assertEqual(response.status_code, 503)
+        
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_history_sensors_exception_handling(self):
+        """Test /api/history/sensors handles exceptions"""
+        # Create mock that raises exception
+        mock_db = MagicMock()
+        mock_db.get_sensor_history.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.get('/api/history/sensors')
+        self.assertEqual(response.status_code, 500)
+        
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_database_stats_without_database(self):
+        """Test /api/database/stats returns 503 without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/database/stats')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_database_stats_exception_handling(self):
+        """Test /api/database/stats handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.get_database_size.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.get('/api/database/stats')
+        self.assertEqual(response.status_code, 500)
+
+
+class TestFanControlEndpoints(unittest.TestCase):
+    """Test fan control without callback"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Clear database and callback
+        set_database(None)
+        set_control_callback(None)
+    
+    def test_fan_control_without_callback(self):
+        """Test /api/control/fan returns 503 without callback"""
+        response = self.client.post('/api/control/fan',
+                                   json={'fan_on': True})
+        
+        self.assertEqual(response.status_code, 503)
+        
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_mode_control_without_callback(self):
+        """Test /api/control/mode returns 503 without callback"""
+        response = self.client.post('/api/control/mode',
+                                   json={'mode': 'heat'})
+        
+        self.assertEqual(response.status_code, 503)
+    
+    def test_mode_control_exception_handling(self):
+        """Test /api/control/mode handles exceptions"""
+        error_callback = MagicMock(side_effect=Exception("Control error"))
+        set_control_callback(error_callback)
+        
+        response = self.client.post('/api/control/mode',
+                                   json={'mode': 'heat'})
+        
+        self.assertEqual(response.status_code, 400)
+
+
+class TestSensorConfigEndpoints(unittest.TestCase):
+    """Test sensor configuration CRUD endpoints"""
+    
+    def setUp(self):
+        """Set up test client with database"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+        
+        # Create temp database
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        from database import ThermostatDatabase
+        self.db = ThermostatDatabase(self.temp_db.name)
+        set_database(self.db)
+        
+        # Mock control callback
+        self.control_callback = MagicMock()
+        set_control_callback(self.control_callback)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_get_sensor_configs_exception(self):
+        """Test /api/sensors/config handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.get_sensors.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.get('/api/sensors/config')
+        self.assertEqual(response.status_code, 500)
+        
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+    
+    def test_update_sensor_config_exception(self):
+        """Test /api/sensors/config/<id> PUT handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.update_sensor.side_effect = Exception("Update error")
+        set_database(mock_db)
+        
+        response = self.client.put('/api/sensors/config/28-0001',
+                                   json={'name': 'Test'})
+        self.assertEqual(response.status_code, 500)
+    
+    def test_update_sensor_with_reload_callback(self):
+        """Test sensor update triggers reload callback"""
+        # Add sensor first
+        self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        
+        response = self.client.put('/api/sensors/config/28-0001',
+                                   json={'name': 'Family Room'})
+        
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify callback was called with reload action
+        self.control_callback.assert_called_once()
+        call_args = self.control_callback.call_args[0][0]
+        self.assertEqual(call_args['action'], 'reload_sensors')
+    
+    def test_delete_sensor_config_without_database(self):
+        """Test DELETE /api/sensors/config/<id> without database"""
+        set_database(None)
+        
+        response = self.client.delete('/api/sensors/config/28-0001')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_delete_sensor_config_not_found(self):
+        """Test deleting non-existent sensor returns 404"""
+        response = self.client.delete('/api/sensors/config/28-9999')
+        self.assertEqual(response.status_code, 404)
+        
+        data = json.loads(response.data)
+        self.assertIn('error', data)
+        self.assertIn('not found', data['error'].lower())
+    
+    def test_delete_sensor_config_success(self):
+        """Test successful sensor deletion"""
+        # Add sensor first
+        self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        
+        response = self.client.delete('/api/sensors/config/28-0001')
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.data)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['sensor_id'], '28-0001')
+        
+        # Verify callback was called
+        self.control_callback.assert_called_once()
+    
+    def test_delete_sensor_config_exception(self):
+        """Test DELETE /api/sensors/config/<id> handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.delete_sensor.side_effect = Exception("Delete error")
+        set_database(mock_db)
+        
+        response = self.client.delete('/api/sensors/config/28-0001')
+        self.assertEqual(response.status_code, 500)
+
+
+class TestHistoryEndpointsException(unittest.TestCase):
+    """Test history endpoint exception handling"""
+    
+    def setUp(self):
+        """Set up test client"""
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+    
+    def test_hvac_history_without_database(self):
+        """Test /api/history/hvac without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/history/hvac')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_hvac_history_exception(self):
+        """Test /api/history/hvac handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.get_hvac_history.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.get('/api/history/hvac')
+        self.assertEqual(response.status_code, 500)
+    
+    def test_settings_history_without_database(self):
+        """Test /api/history/settings without database"""
+        set_database(None)
+        
+        response = self.client.get('/api/history/settings')
+        self.assertEqual(response.status_code, 503)
+    
+    def test_settings_history_exception(self):
+        """Test /api/history/settings handles exceptions"""
+        mock_db = MagicMock()
+        mock_db.get_setting_history.side_effect = Exception("Database error")
+        set_database(mock_db)
+        
+        response = self.client.get('/api/history/settings')
+        self.assertEqual(response.status_code, 500)
 
 
 if __name__ == '__main__':

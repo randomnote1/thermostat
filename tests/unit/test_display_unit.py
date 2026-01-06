@@ -6,6 +6,7 @@ Tests display logic without hardware dependencies
 
 import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
@@ -264,6 +265,77 @@ class TestThermostatDisplay(unittest.TestCase):
         )
         
         self.assertFalse(result)
+
+
+class TestDisplayDatabaseIntegration(unittest.TestCase):
+    """Test display integration with database for temperature units"""
+    
+    def setUp(self):
+        """Set up test with temporary database"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        # Import here to avoid circular dependencies
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+        from database import ThermostatDatabase
+        
+        self.db = ThermostatDatabase(self.temp_db.name)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_display_loads_temperature_units_from_database(self):
+        """Test display loads temperature units from database"""
+        # Save settings with Celsius
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'C')
+        
+        # Create display with database
+        display = ThermostatDisplay(database=self.db)
+        
+        # Create an image to trigger loading settings
+        hvac_state = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
+        display.create_display_image(20.0, 20.0, hvac_state, [], [])
+        
+        # Should load Celsius from database
+        self.assertEqual(display.temperature_units, 'C')
+    
+    def test_display_handles_no_database_settings(self):
+        """Test display handles missing database settings gracefully"""
+        # Create new empty database
+        display = ThermostatDisplay(database=self.db)
+        
+        # Should default to Fahrenheit
+        self.assertEqual(display.temperature_units, 'F')
+
+
+class TestDisplayExceptionHandling(unittest.TestCase):
+    """Test display exception handling"""
+    
+    def test_clear_display_exception(self):
+        """Test clear display handles exceptions"""
+        mock_epd = MagicMock()
+        mock_epd.Clear.side_effect = Exception("Clear error")
+        
+        display = ThermostatDisplay()
+        display.epd = mock_epd
+        
+        # Should handle exception gracefully
+        display.clear()
+        # No assertion - just verifying no exception propagates
+    
+    def test_sleep_display_exception(self):
+        """Test sleep display handles exceptions"""
+        mock_epd = MagicMock()
+        mock_epd.sleep.side_effect = Exception("Sleep error")
+        
+        display = ThermostatDisplay()
+        display.epd = mock_epd
+        
+        # Should handle exception gracefully
+        display.sleep()
+        # No assertion - just verifying no exception propagates
 
 
 if __name__ == '__main__':

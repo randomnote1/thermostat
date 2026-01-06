@@ -848,5 +848,182 @@ class TestScheduleEdgeCases(unittest.TestCase):
         self.assertIn(id2, schedule_ids)
 
 
+class TestDatabaseMaintenance(unittest.TestCase):
+    """Test database maintenance and cleanup functions"""
+    
+    def setUp(self):
+        """Create a temporary database"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db_path = self.temp_db.name
+        self.db = ThermostatDatabase(self.db_path)
+    
+    def tearDown(self):
+        """Clean up temporary database"""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+    
+    def test_cleanup_old_history(self):
+        """Test cleanup of old history data"""
+        # Add some history data
+        for i in range(50):
+            self.db.log_hvac_state(20.0, 20.0, 'heat', True, False, False, False)
+        
+        # Cleanup data older than 0 days (should delete all)
+        self.db.cleanup_old_history(days_to_keep=0)
+        
+        # Database should still exist
+        self.assertTrue(os.path.exists(self.db_path))
+
+
+class TestSettingsEdgeCases(unittest.TestCase):
+    """Test edge cases in settings handling"""
+    
+    def setUp(self):
+        """Create a temporary database"""
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db_path = self.temp_db.name
+        self.db = ThermostatDatabase(self.db_path)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.db_path):
+            os.unlink(self.db_path)
+    
+    def test_load_settings_missing_temperature_units(self):
+        """Test loading settings when temperature_units column doesn't exist"""
+        # Save settings normally
+        self.db.save_settings(20.0, 25.0, 'heat', 'auto', 'F')
+        
+        # Manually remove temperature_units column to simulate old database
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Create a new settings table without temperature_units
+            cursor.execute('DROP TABLE settings')
+            cursor.execute('''
+                CREATE TABLE settings (
+                    id INTEGER PRIMARY KEY,
+                    target_temp_heat REAL NOT NULL,
+                    target_temp_cool REAL NOT NULL,
+                    hvac_mode TEXT NOT NULL,
+                    fan_mode TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('''
+                INSERT INTO settings (target_temp_heat, target_temp_cool, hvac_mode, fan_mode)
+                VALUES (20.0, 25.0, 'heat', 'auto')
+            ''')
+            conn.commit()
+        
+        # Should load settings with default 'F' for temperature_units
+        settings = self.db.load_settings()
+        self.assertIsNotNone(settings)
+        self.assertEqual(settings['temperature_units'], 'F')
+    
+    def test_vacuum_database(self):
+        """Test manual vacuum operation"""
+        # Add and delete data to create fragmentation
+        for i in range(50):
+            self.db.log_hvac_state(20.0, 20.0, 'heat', True, False, False, False)
+        
+        self.db.cleanup_old_history(days_to_keep=0)  # Delete all
+        
+        # Get size before vacuum
+        size_before = os.path.getsize(self.db_path)
+        
+        # Vacuum the database
+        with self.db._get_connection() as conn:
+            conn.execute('VACUUM')
+        
+        # Size after should be smaller or same
+        size_after = os.path.getsize(self.db_path)
+        self.assertLessEqual(size_after, size_before)
+
+
+class TestScheduleUpdateEdgeCases(unittest.TestCase):
+    """Test schedule update edge cases"""
+    
+    def setUp(self):
+        """Set up test database"""
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_file.close()
+        self.db = ThermostatDatabase(self.temp_file.name)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+    
+    def test_update_schedule_no_valid_fields(self):
+        """Test updating schedule with no valid fields"""
+        schedule_id = self.db.create_schedule(
+            name='Test', days_of_week='1,2,3', time_str='08:00',
+            target_temp_heat=20.0, target_temp_cool=24.0, hvac_mode='heat'
+        )
+        
+        # Try to update with invalid fields - should be no-op
+        self.db.update_schedule(schedule_id, invalid_field='value', another_invalid='data')
+        
+        # Verify schedule unchanged by getting all schedules
+        schedules = self.db.get_schedules()
+        self.assertEqual(len(schedules), 1)
+        self.assertEqual(schedules[0]['name'], 'Test')
+
+
+class TestSensorHistoryFiltering(unittest.TestCase):
+    """Test sensor history filtering by sensor_id"""
+    
+    def setUp(self):
+        """Set up test database"""
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_file.close()
+        self.db = ThermostatDatabase(self.temp_file.name)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+    
+    def test_get_sensor_history_with_specific_sensor_id(self):
+        """Test getting history filtered by sensor_id"""
+        # Log readings for multiple sensors
+        self.db.log_sensor_reading('28-0001', 'Living Room', 21.0, is_compromised=False)
+        self.db.log_sensor_reading('28-0002', 'Bedroom', 20.5, is_compromised=False)
+        self.db.log_sensor_reading('28-0001', 'Living Room', 21.5, is_compromised=False)
+        
+        # Get history for specific sensor
+        history = self.db.get_sensor_history(sensor_id='28-0001', hours=1)
+        
+        # Should only return readings for that sensor
+        self.assertEqual(len(history), 2)
+        for reading in history:
+            self.assertEqual(reading['sensor_id'], '28-0001')
+
+
+class TestSmartCleanupEdgeCases(unittest.TestCase):
+    """Test smart cleanup edge cases"""
+    
+    def setUp(self):
+        """Set up test database"""
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_file.close()
+        self.db = ThermostatDatabase(self.temp_file.name)
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_file.name):
+            os.unlink(self.temp_file.name)
+    
+    def test_smart_cleanup_missing_database_file(self):
+        """Test smart cleanup when database file doesn't exist"""
+        # Delete database file
+        os.unlink(self.temp_file.name)
+        
+        # Should return without error
+        self.db.smart_cleanup(min_days_to_keep=30, max_disk_percent=50)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -584,5 +584,285 @@ class TestThermostatController(unittest.TestCase):
         self.assertTrue(self.controller.hvac_state['cool'])
 
 
+class TestThermostatDatabaseIntegration(unittest.TestCase):
+    """Test thermostat integration with database"""
+    
+    def setUp(self):
+        """Set up with temporary database"""
+        import tempfile
+        from database import ThermostatDatabase
+        
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db = ThermostatDatabase(self.temp_db.name)
+        
+        # Create controller with database via environment
+        with patch.dict(os.environ, {
+            'LOG_LEVEL': 'CRITICAL',
+            'DATABASE_PATH': self.temp_db.name
+        }):
+            self.controller = ThermostatController()
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_load_sensors_from_database(self):
+        """Test loading sensor configuration from database"""
+        # Add sensors to database
+        self.controller.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        self.controller.db.add_sensor('28-0002', 'Bedroom', enabled=True, monitored=False)
+        self.controller.db.add_sensor('28-0003', 'Kitchen', enabled=False, monitored=False)
+        
+        # Reload sensors
+        self.controller._load_sensors_from_database()
+        
+        # Verify sensor map
+        self.assertIn('28-0001', self.controller.sensor_map)
+        self.assertEqual(self.controller.sensor_map['28-0001'], 'Living Room')
+        
+        # Verify monitored sensors (only enabled and monitored ones)
+        self.assertIn('28-0001', self.controller.monitored_sensors)
+        self.assertNotIn('28-0002', self.controller.monitored_sensors)
+        self.assertNotIn('28-0003', self.controller.monitored_sensors)
+    
+    def test_load_sensors_without_database(self):
+        """Test loading sensors when database is None"""
+        with patch.dict(os.environ, {'LOG_LEVEL': 'CRITICAL', 'DATABASE_PATH': ''}):
+            controller = ThermostatController()
+        
+        # Should not raise exception
+        controller._load_sensors_from_database()
+        self.assertEqual(len(controller.sensor_map), 0)
+    
+    def test_register_new_sensors_without_database(self):
+        """Test registering new sensors when database is None"""
+        with patch.dict(os.environ, {'LOG_LEVEL': 'CRITICAL', 'DATABASE_PATH': ''}):
+            controller = ThermostatController()
+        
+        # Should not raise exception
+        controller._register_new_sensors(['28-0001', '28-0002'])
+        # No changes should occur
+        self.assertEqual(len(controller.sensor_map), 0)
+
+
+class TestThermostatWebUpdate(unittest.TestCase):
+    """Test web interface state updates"""
+    
+    def test_update_web_interface_when_disabled(self):
+        """Test web interface update when web is disabled"""
+        with patch.dict(os.environ, {'LOG_LEVEL': 'CRITICAL', 'DATABASE_PATH': ''}):
+            controller = ThermostatController()
+        
+        # Should not raise exception
+        controller._update_web_interface()
+
+
+class TestSensorRegistration(unittest.TestCase):
+    """Test sensor auto-registration"""
+    
+    def setUp(self):
+        """Set up with temporary database"""
+        import tempfile
+        from database import ThermostatDatabase
+        
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        self.db = ThermostatDatabase(self.temp_db.name)
+        
+        with patch.dict(os.environ, {
+            'LOG_LEVEL': 'CRITICAL',
+            'DATABASE_PATH': self.temp_db.name
+        }):
+            self.controller = ThermostatController()
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_register_new_sensors(self):
+        """Test auto-registering new sensors"""
+        # Register new sensors
+        self.controller._register_new_sensors(['28-0001', '28-0002'])
+        
+        # Verify they were added to database
+        sensor1 = self.db.get_sensor('28-0001')
+        self.assertIsNotNone(sensor1)
+        self.assertEqual(sensor1['sensor_id'], '28-0001')
+        self.assertTrue(sensor1['enabled'])
+        self.assertFalse(sensor1['monitored'])  # New sensors default to not monitored
+        
+        # Verify sensor map was reloaded
+        self.assertIn('28-0001', self.controller.sensor_map)
+        self.assertIn('28-0002', self.controller.sensor_map)
+    
+    def test_register_existing_sensor_ignored(self):
+        """Test that existing sensors are not re-registered"""
+        # Add sensor manually
+        self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
+        self.controller._load_sensors_from_database()
+        
+        # Try to register again (should be skipped)
+        self.controller._register_new_sensors(['28-0001', '28-0002'])
+        
+        # Verify original name preserved
+        sensor1 = self.db.get_sensor('28-0001')
+        self.assertEqual(sensor1['name'], 'Living Room')
+        self.assertTrue(sensor1['monitored'])  # Original flag preserved
+        
+        # But new sensor was added
+        sensor2 = self.db.get_sensor('28-0002')
+        self.assertIsNotNone(sensor2)
+
+
+class TestLogHistory(unittest.TestCase):
+    """Test history logging methods"""
+    
+    def setUp(self):
+        """Set up with temporary database"""
+        import tempfile
+        from database import ThermostatDatabase
+        
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        with patch.dict(os.environ, {
+            'LOG_LEVEL': 'CRITICAL',
+            'DATABASE_PATH': self.temp_db.name
+        }):
+            self.controller = ThermostatController()
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_log_sensor_history(self):
+        """Test logging sensor readings to database"""
+        readings = [
+            SensorReading('28-0001', 'Living Room', 21.0, datetime.now()),
+            SensorReading('28-0002', 'Bedroom', 20.5, datetime.now())
+        ]
+        
+        # Log readings
+        self.controller._log_sensor_history(readings)
+        
+        # Verify they were logged
+        history = self.controller.db.get_sensor_history(hours=1)
+        self.assertEqual(len(history), 2)
+    
+    def test_log_hvac_history(self):
+        """Test logging HVAC state to database"""
+        # Set HVAC state
+        self.controller._set_hvac_state(heat=True, cool=False, fan=False, heat2=False)
+        
+        # Log history
+        self.controller._log_hvac_history(21.5)
+        
+        # Verify it was logged
+        history = self.controller.db.get_hvac_history(hours=1)
+        self.assertGreater(len(history), 0)
+        self.assertEqual(history[0]['heat_active'], 1)
+        self.assertEqual(history[0]['cool_active'], 0)
+    
+    def test_log_hvac_history_heat_mode(self):
+        """Test logging HVAC history with heat mode"""
+        self.controller.hvac_mode = 'heat'
+        self.controller.target_temp_heat = 20.0
+        self.controller._set_hvac_state(heat=True, cool=False, fan=True, heat2=False)
+        
+        # Log with system temp
+        self.controller._log_hvac_history(19.5)
+        
+        # Verify target temp is heat setting
+        history = self.controller.db.get_hvac_history(hours=1)
+        self.assertEqual(history[0]['target_temp'], 20.0)
+    
+    def test_log_hvac_history_cool_mode(self):
+        """Test logging HVAC history with cool mode"""
+        self.controller.hvac_mode = 'cool'
+        self.controller.target_temp_cool = 24.0
+        self.controller._set_hvac_state(heat=False, cool=True, fan=True, heat2=False)
+        
+        # Log with system temp
+        self.controller._log_hvac_history(25.0)
+        
+        # Verify target temp is cool setting
+        history = self.controller.db.get_hvac_history(hours=1)
+        self.assertEqual(history[0]['target_temp'], 24.0)
+
+
+class TestControlCommandsExtended(unittest.TestCase):
+    """Test additional control commands"""
+    
+    def setUp(self):
+        """Set up with temporary database"""
+        import tempfile
+        
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
+        with patch.dict(os.environ, {
+            'LOG_LEVEL': 'CRITICAL',
+            'DATABASE_PATH': self.temp_db.name
+        }):
+            self.controller = ThermostatController()
+    
+    def tearDown(self):
+        """Clean up"""
+        if os.path.exists(self.temp_db.name):
+            os.unlink(self.temp_db.name)
+    
+    def test_reload_sensors_command(self):
+        """Test reload_sensors command"""
+        # Add sensor to database
+        self.controller.db.add_sensor('28-test', 'Test Room', enabled=True, monitored=True)
+        
+        # Execute reload command
+        result = self.controller.handle_control_command('reload_sensors', {})
+        
+        # Verify success
+        self.assertTrue(result['success'])
+        self.assertIn('28-test', self.controller.sensor_map)
+    
+    def test_reload_sensors_without_database(self):
+        """Test reload_sensors when database not available"""
+        with patch.dict(os.environ, {'LOG_LEVEL': 'CRITICAL', 'DATABASE_PATH': ''}):
+            controller = ThermostatController()
+        
+        result = controller.handle_control_command('reload_sensors', {})
+        
+        self.assertFalse(result['success'])
+        self.assertIn('Database not available', result['error'])
+    
+    def test_set_temperature_cool_with_database(self):
+        """Test setting cool temperature with database persistence"""
+        old_temp = self.controller.target_temp_cool
+        
+        result = self.controller.handle_control_command('set_temperature', {
+            'type': 'cool',
+            'temperature': 25.0
+        })
+        
+        self.assertTrue(result['success'])
+        self.assertEqual(self.controller.target_temp_cool, 25.0)
+        
+        # Verify persisted to database
+        settings = self.controller.db.load_settings()
+        self.assertEqual(settings['target_temp_cool'], 25.0)
+    
+    def test_set_temperature_invalid_type(self):
+        """Test setting temperature with invalid type"""
+        result = self.controller.handle_control_command('set_temperature', {
+            'type': 'invalid',
+            'temperature': 20.0
+        })
+        
+        self.assertFalse(result['success'])
+        self.assertIn('Invalid temperature type', result['error'])
+
+
 if __name__ == '__main__':
     unittest.main()
