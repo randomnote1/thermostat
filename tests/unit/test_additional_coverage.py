@@ -14,6 +14,11 @@ import sys
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
+# Mock hardware dependencies before importing
+sys.modules['RPi'] = MagicMock()
+sys.modules['RPi.GPIO'] = MagicMock()
+sys.modules['w1thermsensor'] = MagicMock()
+
 from thermostat import ThermostatController, SensorReading
 
 
