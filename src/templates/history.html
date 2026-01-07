@@ -421,16 +421,28 @@
                 }
             }
 
-            // Check URL fragment on page load
+                // Check URL fragment and query parameters on page load
             window.addEventListener('DOMContentLoaded', () => {
-                const hash = window.location.hash.substring(1); // Remove the #
-                const validTabs = ['stats', 'settings', 'hvac', 'sensors'];
-                
-                if (hash && validTabs.includes(hash)) {
-                    switchTab(hash);
+                // Check for sensor query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const sensorParam = urlParams.get('sensor');
+
+                if (sensorParam) {
+                    // If sensor parameter exists, switch to sensors tab and pre-select the sensor
+                    switchTab('sensors');
+                    // Store the sensor ID to select after data loads
+                    window.pendingSensorSelection = sensorParam;
                 } else {
-                    // Default to stats tab
-                    loadDatabaseStats();
+                // Otherwise, check URL fragment for tab selection
+                    const hash = window.location.hash.substring(1); // Remove the #
+                    const validTabs = ['stats', 'settings', 'hvac', 'sensors'];
+
+                    if (hash && validTabs.includes(hash)) {
+                        switchTab(hash);
+                    } else {
+                        // Default to stats tab
+                        loadDatabaseStats();
+                    }
                 }
             });
 
@@ -607,9 +619,23 @@
                 sensorFilter.innerHTML = '<option value="all">All Sensors</option>' +
                     uniqueSensors.map(name => `<option value="${name}">${name}</option>`).join('');
 
-                // Restore selection if it still exists
-                if (uniqueSensors.includes(currentSelection)) {
-                    sensorFilter.value = currentSelection;
+                // Check for pending sensor selection from URL parameter
+                if (window.pendingSensorSelection) {
+                    // Try to find sensor by ID first, then by name
+                    const sensorToSelect = uniqueSensors.find(name =>
+                        sensorHistoryData.find(r => r.sensor_name === name && r.sensor_id === window.pendingSensorSelection)
+                    );
+
+                    if (sensorToSelect) {
+                        sensorFilter.value = sensorToSelect;
+                    }
+                    // Clear the pending selection
+                    window.pendingSensorSelection = null;
+                } else {
+                    // Restore previous selection if it still exists
+                    if (uniqueSensors.includes(currentSelection)) {
+                        sensorFilter.value = currentSelection;
+                    }
                 }
                 
                 // Update temperature units from response
