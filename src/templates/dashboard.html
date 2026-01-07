@@ -468,7 +468,7 @@
                             <input type="checkbox" id="fan-toggle" onchange="setFan(this.checked)">
                             <span class="toggle-slider"></span>
                         </label>
-                        <span class="fan-label" id="fan-label">OFF</span>
+                        <span class="fan-label" id="fan-label">AUTO</span>
                     </div>
                 </div>
                 <div class="control-section">
@@ -604,8 +604,8 @@
                     throw new Error(error.error || 'Failed to set fan');
                 }
 
-                document.getElementById('fan-label').textContent = fanOn ? 'ON' : 'OFF';
-                showSuccess(`Fan turned ${fanOn ? 'ON' : 'OFF'}`);
+                document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
                 updateDashboard();
             } catch (error) {
                 showError(`Failed to set fan: ${error.message}`);
@@ -685,7 +685,7 @@
                     const fanToggle = document.getElementById('fan-toggle');
                     fanToggle.checked = hvacState.fan || false;
                     document.getElementById('fan-label').textContent = 
-                        fanToggle.checked ? 'ON' : 'OFF';
+                        fanToggle.checked ? 'CONTINUOUS' : 'AUTO';
                     
                     // Update schedule status
                     updateScheduleStatus(data);
