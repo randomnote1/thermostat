@@ -301,7 +301,7 @@
 
         .schedule-buttons {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
             flex: 1;
         }
@@ -895,7 +895,7 @@
             // Update schedule control buttons
             if (!displayEnabled) {
                 statusEl.className = 'schedule-status disabled';
-                statusEl.textContent = '🔕 Schedules are disabled';
+                statusEl.textContent = '🔕 Disabled';
                 statusEl.style.display = 'block';
                 resumeBtn.style.display = 'none';
                 disableBtn.style.display = 'none';
@@ -904,14 +904,14 @@
                 const holdUntil = new Date(data.schedule_hold_until);
                 const timeLeft = Math.round((holdUntil - new Date()) / 60000); // minutes
                 statusEl.className = 'schedule-status on-hold';
-                statusEl.textContent = `⏸️ Schedules on hold for ${timeLeft} minutes (manual override active)`;
+                statusEl.textContent = `⏸️ On hold: ${timeLeft} min`;
                 statusEl.style.display = 'block';
                 resumeBtn.style.display = 'inline-block';
                 disableBtn.style.display = 'inline-block';
                 enableBtn.style.display = 'none';
             } else {
                 statusEl.className = 'schedule-status active';
-                statusEl.textContent = '✅ Schedules active';
+                statusEl.textContent = '✅ Active';
                 statusEl.style.display = 'block';
                 resumeBtn.style.display = 'none';
                 disableBtn.style.display = 'inline-block';
