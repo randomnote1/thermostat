@@ -535,20 +535,16 @@
             }, 3000);
         }
 
-        async function adjustTemp(type, delta) {
-            const currentTemp = type === 'heat' ? currentTargetHeat : currentTargetCool;
-            const newTemp = currentTemp + delta;
+        // Debounce timers for temperature adjustments
+        let tempDebounceTimer = nul               let pendingTempChange = null;
 
-            if (newTemp < tempMin || newTemp > tempMax) {
-                showError(`Temperature must be between ${tempMin}${temperatureSymbol} and ${tempMax}${temperatureSymbol}`);
-                return;
-            }
-
+        async function saveTargetTemp(type, temperature) {
+            // Actually save the temperature to the server
             try {
                 const response = await fetch('/api/control/temperature', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({type: type, temperature: newTemp})
+                                                          JSON.stringify({type:                             ature: temperature})
                 });
 
                 if (!response.ok) {
@@ -556,25 +552,41 @@
                     throw new Error(error.error || 'Failed to set temperature');
                 }
 
-                if (type === 'heat') {
-                    currentTargetHeat = newTemp;
-                    document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
-                    // Track what the user set to prevent polling from overwriting
-                    lastTempChangeTime = Date.now();
-                    lastTempChangeHeat = newTemp;
+                // Trac                        ser set to prevent polling from o                                       lastTempChangeTime =
+                            if (type === 'heat') {
+                    lastTempChang                        erature;
                 } else {
-                    currentTargetCool = newTemp;
-                    document.getElementById('target-cool').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
-                    // Track what the user set to prevent polling from overwriting
-                    lastTempChangeTime = Date.now();
-                    lastTempChangeCool = newTemp;
-                }
-
-                showSuccess(`Target ${type} temperature set to ${newTemp.toFixed(1)}${temperatureSymbol}`);
-                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
-            } catch (error) {
-                showError(`Failed to set temperature: ${error.message}`);
+              m                        = temperature;
+                                               showSuccess(`Target                            ture set to ${temper                        d(1)}${tem                    Sym                                    // Don't call updateDashboard()                    he 5-second interval sync to p                    ace conditions
+            } ca                    or) {
+                showError(`Failed to set temp                        rror.message}`);
             }
+        }
+
+                             ction                              delta) {
+            const currentTemp = type === 'heat' ?                                 currentTargetCo                                t newTemp  = currentTemp + delta;
+
+             i                                 || newTemp > tempMax)  {
+                showError(`Temper atu                            en ${                            atureSymbol} and ${t                                Symbol}`);
+                return;
+                                       // Update UI immediately
+            if (type === 'heat') {
+                currentTargetHeat = newTemp;
+                document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+            } else {
+                currentTargetCool = newTemp;
+                document.getElementById('target-cool').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+            }
+
+            // Clear any existing debounce timer
+            if (tempDebounceTimer) {
+                clearTimeout(tempDebounceTimer);
+            }
+
+            // Set a new timer to save after 1.5 s        activity
+                     imer = setTimeout(() => {
+                saveTargetTemp(t        );           mpDebounceTimer = null;
+            }, 1500);
         }
 
         async function setMode(mode) {
