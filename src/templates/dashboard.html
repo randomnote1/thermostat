@@ -43,12 +43,15 @@
         .temp-display {
             text-align: center;
             padding: 20px 0;
+            position: relative;
         }
 
         .temp-value {
             font-size: 4em;
             font-weight: bold;
             color: var(--accent-color);
+            position: relative;
+            z-index: 2;
         }
 
         .temp-label {
@@ -100,6 +103,8 @@
             border-radius: 8px;
             border-top: 4px solid var(--accent-color);
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
 
         .sensor-item.compromised {
@@ -118,6 +123,30 @@
             font-size: 2em;
             font-weight: bold;
             color: var(--accent-color);
+            position: relative;
+            z-index: 2;
+        }
+
+        .sparkline {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.15;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .sparkline path {
+            fill: none;
+            stroke: var(--accent-color);
+            stroke-width: 2;
+            vector-effect: non-scaling-stroke;
+        }
+
+        .sensor-item.compromised .sparkline path {
+            stroke: #f56565;
         }
 
         .sensor-item.compromised .sensor-temp {
@@ -584,6 +613,148 @@
             let temperatureSymbol = '°F';
             let tempMin = 50;
             let tempMax = 90;
+        
+        // Store history data for sparklines
+        let sensorHistoryData = {};
+        let systemHistoryData = [];
+
+        /**
+         * Generate SVG sparkline from temperature data
+         * @param {Array} data - Array of {timestamp, temperature} objects
+         * @param {number} width - SVG width
+         * @param {number} height - SVG height
+         * @returns {string} SVG path data
+         */
+        function generateSparkline(data, width, height) {
+            if (!data || data.length < 2) return '';
+            
+            // Extract temperatures and find min/max for scaling
+            const temps = data.map(d => d.temperature).filter(t => t != null);
+            if (temps.length < 2) return '';
+            
+            const minTemp = Math.min(...temps);
+            const maxTemp = Math.max(...temps);
+            const tempRange = maxTemp - minTemp;
+            
+            // Avoid division by zero for flat lines
+            const scale = tempRange > 0 ? tempRange : 1;
+            
+            // Generate path points
+            const points = data.map((d, i) => {
+                const x = (i / (data.length - 1)) * width;
+                const y = height - ((d.temperature - minTemp) / scale) * height * 0.8 - height * 0.1;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+            });
+            
+            return `M ${points.join(' L ')}`;
+        }
+
+        /**
+         * Fetch sensor history and update sparklines
+         */
+        async function updateSparklines() {
+            try {
+                // Fetch 24-hour history for all sensors
+                const response = await fetch('/api/history/sensors?hours=24&limit=288'); // ~5 min intervals
+                if (!response.ok) throw new Error('Failed to fetch history');
+                
+                const historyData = await response.json();
+                
+                // Group data by sensor_id
+                const bySensor = {};
+                historyData.history.forEach(entry => {
+                    if (!bySensor[entry.sensor_id]) {
+                        bySensor[entry.sensor_id] = [];
+                    }
+                    bySensor[entry.sensor_id].push({
+                        timestamp: entry.timestamp,
+                        temperature: entry.temperature
+                    });
+                });
+                
+                // Reverse to chronological order (API returns DESC)
+                Object.keys(bySensor).forEach(sensorId => {
+                    bySensor[sensorId].reverse();
+                });
+                
+                sensorHistoryData = bySensor;
+                
+                // Calculate system average history for main display
+                const timestamps = new Set();
+                historyData.history.forEach(entry => timestamps.add(entry.timestamp));
+                
+                const sortedTimestamps = Array.from(timestamps).sort();
+                systemHistoryData = sortedTimestamps.map(ts => {
+                    const readings = historyData.history.filter(e => e.timestamp === ts);
+                    const avgTemp = readings.reduce((sum, r) => sum + r.temperature, 0) / readings.length;
+                    return { timestamp: ts, temperature: avgTemp };
+                });
+                
+                // Render sparklines
+                renderAllSparklines();
+            } catch (error) {
+                console.error('Error updating sparklines:', error);
+            }
+        }
+
+        /**
+         * Render sparkline for a specific element
+         */
+        function renderSparkline(element, data) {
+            if (!element || !data || data.length < 2) return;
+            
+            // Remove existing sparkline
+            const existing = element.querySelector('.sparkline');
+            if (existing) existing.remove();
+            
+            // Get element dimensions
+            const rect = element.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            
+            if (width <= 0 || height <= 0) return;
+            
+            // Generate path
+            const path = generateSparkline(data, width, height);
+            if (!path) return;
+            
+            // Create SVG
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'sparkline');
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
+            
+            const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathEl.setAttribute('d', path);
+            
+            svg.appendChild(pathEl);
+            element.insertBefore(svg, element.firstChild);
+        }
+
+        /**
+         * Render all sparklines on the page
+         */
+        function renderAllSparklines() {
+            // Render system temperature sparkline
+            const systemTempDisplay = document.querySelector('.temp-display');
+            if (systemTempDisplay && systemHistoryData.length > 0) {
+                renderSparkline(systemTempDisplay, systemHistoryData);
+            }
+            
+            // Render individual sensor sparklines
+            const sensorItems = document.querySelectorAll('.sensor-item');
+            sensorItems.forEach(item => {
+                const sensorName = item.querySelector('.sensor-name');
+                if (!sensorName) return;
+                
+                // Find matching sensor data by matching against current readings
+                // We need to match by sensor ID, which we'll store as a data attribute
+                const sensorId = item.dataset.sensorId;
+                if (sensorId && sensorHistoryData[sensorId]) {
+                    renderSparkline(item, sensorHistoryData[sensorId]);
+                }
+            });
+        }
 
         function showError(message) {
             const errorEl = document.getElementById('error-message');
@@ -944,7 +1115,7 @@
             sensorList.innerHTML = readings.map(reading => {
                 const isCompromised = compromisedSet.has(reading.id);
                 return `
-                    <li class="sensor-item ${isCompromised ? 'compromised' : ''}">
+                    <li class="sensor-item ${isCompromised ? 'compromised' : ''}" data-sensor-id="${reading.id}">
                         <span class="sensor-name">
                             ${reading.name}
                             ${isCompromised ? '<span class="warning-icon">⚠️</span>' : ''}
@@ -953,6 +1124,9 @@
                     </li>
                 `;
             }).join('');
+            
+            // Re-render sparklines after sensor list updates
+            renderAllSparklines();
         }
 
         function updateScheduleStatus(data) {
@@ -1098,9 +1272,22 @@
 
         // Initial update
         updateDashboard();
+        updateSparklines();
 
         // Auto-refresh every 5 seconds
         setInterval(updateDashboard, 5000);
+        
+        // Update sparklines every 60 seconds (less frequent since history changes slowly)
+        setInterval(updateSparklines, 60000);
+        
+        // Re-render sparklines when window is resized
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                renderAllSparklines();
+            }, 250);
+        });
     </script>
 </body>
 </html>
