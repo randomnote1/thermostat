@@ -342,8 +342,19 @@ class ThermostatController:
     
     def control_hvac(self, system_temp: float) -> None:
         """Control HVAC system based on system temperature"""
+        # Determine fan state based on manual mode or auto mode
+        # In manual mode, fan is always controlled by user setting
+        # In auto mode, fan runs with heat/cool
+        def get_fan_state(hvac_active: bool) -> bool:
+            if self.manual_fan_mode:
+                return True  # Manual continuous mode - always on
+            else:
+                return hvac_active  # Auto mode - on when HVAC is active
+        
         if self.hvac_mode == 'off':
-            self._set_hvac_state(heat=False, cool=False, fan=False, heat2=False)
+            # In manual fan mode, keep fan running even when HVAC is off
+            fan_state = get_fan_state(False)
+            self._set_hvac_state(heat=False, cool=False, fan=fan_state, heat2=False)
             return
         
         # Check minimum run/rest time constraints
@@ -363,21 +374,25 @@ class ThermostatController:
         # Heating mode
         if self.hvac_mode in ['heat', 'auto']:
             if system_temp < self.target_temp_heat - self.hysteresis:
-                self._set_hvac_state(heat=True, cool=False, fan=True)
+                fan_state = get_fan_state(True)
+                self._set_hvac_state(heat=True, cool=False, fan=fan_state)
                 # Enable secondary heat if temperature is very low (3°C below target)
                 if system_temp < self.target_temp_heat - 1.67:  # ~3°F in Celsius
                     self.hvac_state['heat2'] = True
                     if GPIO:
                         GPIO.output(self.gpio_relay_heat2, GPIO.HIGH)
             elif system_temp > self.target_temp_heat + self.hysteresis:
-                self._set_hvac_state(heat=False, cool=False, fan=False, heat2=False)
+                fan_state = get_fan_state(False)
+                self._set_hvac_state(heat=False, cool=False, fan=fan_state, heat2=False)
         
         # Cooling mode
         if self.hvac_mode in ['cool', 'auto']:
             if system_temp > self.target_temp_cool + self.hysteresis:
-                self._set_hvac_state(heat=False, cool=True, fan=True)
+                fan_state = get_fan_state(True)
+                self._set_hvac_state(heat=False, cool=True, fan=fan_state)
             elif system_temp < self.target_temp_cool - self.hysteresis:
-                self._set_hvac_state(heat=False, cool=False, fan=False)
+                fan_state = get_fan_state(False)
+                self._set_hvac_state(heat=False, cool=False, fan=fan_state)
     
     def _set_hvac_state(self, heat: bool, cool: bool, fan: bool, heat2: bool = False) -> None:
         """Set HVAC relay states"""
@@ -724,16 +739,19 @@ class ThermostatController:
                 # If fan_on=True, enable manual continuous mode
                 # If fan_on=False, disable manual mode (return to auto)
                 old_manual_mode = self.manual_fan_mode
-                old_fan_state = self.hvac_state['fan']
                 
                 self.manual_fan_mode = fan_on  # True = continuous, False = auto
                 
-                # Manual fan control
-                if GPIO:
-                    GPIO.output(self.gpio_relay_fan, GPIO.HIGH if fan_on else GPIO.LOW)
-                
-                self.hvac_state['fan'] = fan_on
                 logger.info(f"Fan set to {'CONTINUOUS' if fan_on else 'AUTO'} (manual_fan_mode={self.manual_fan_mode})")
+                
+                # Use _set_hvac_state to properly update the fan with current HVAC state
+                # This ensures consistency and respects safety checks
+                self._set_hvac_state(
+                    heat=self.hvac_state['heat'],
+                    cool=self.hvac_state['cool'],
+                    fan=fan_on if self.manual_fan_mode else (self.hvac_state['heat'] or self.hvac_state['cool']),
+                    heat2=self.hvac_state['heat2']
+                )
                 
                 # Persist fan mode setting and log to both histories
                 if self.db:
@@ -742,7 +760,7 @@ class ThermostatController:
                     self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode, fan_mode)
                     
                     # Log to settings history
-                    old_fan_mode = 'on' if old_manual_mode and old_fan_state else 'auto'
+                    old_fan_mode = 'on' if old_manual_mode else 'auto'
                     self.db.log_setting_change('fan_mode', old_fan_mode, fan_mode, 'web_interface')
                     
                     # Log to HVAC history
