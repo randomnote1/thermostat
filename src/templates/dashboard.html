@@ -437,6 +437,35 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @media (max-width: 360px) {
+            .temp-value {
+                font-size: 2em;
+            }
+
+            .target-temp .value {
+                font-size: 1.5em;
+            }
+
+            .target-temp .label {
+                font-size: 0.8em;
+            }
+
+            .hvac-badge {
+                font-size: 0.7em;
+                padding: 5px 6px;
+            }
+
+            .control-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 1em;
+            }
+
+            .card h2 {
+                font-size: 1.2em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -556,7 +585,8 @@
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
         function toggleNav() {
-                          navLinks.classList.toggle('active');
+            const navLinks = document.getElementById('nav-links');
+            navLinks.classList.toggle('active');
         }
 
         let errorCount = 0;
