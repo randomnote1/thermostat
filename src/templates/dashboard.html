@@ -698,7 +698,7 @@
                     // Use manual_fan_mode to determine if continuous (true) or auto (false)
                     const fanManual = data.manual_fan_mode || false;
                     // Only update if fan wasn't recently changed by user (prevent overwriting during server sync)
-                    if (Date.now() - lastFanChangeTime > 10000) {  // 10 second debounce
+                    if (Date.now() - lastFanChangeTime > 30000) {  // 30 second debounce
                         fanToggle.checked = fanManual;
                         fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
                     }
