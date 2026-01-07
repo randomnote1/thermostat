@@ -498,6 +498,7 @@
         let currentTargetHeat = 68;
         let currentTargetCool = 74;
         let lastFanChange = 0;  // Timestamp of last manual fan change
+            let intendedFanState = null;  // What we set the fan to (null = not set by user)
 
             // Global temperature units
             let temperatureUnits = 'F';
@@ -612,6 +613,7 @@
                 fanToggle.checked = fanOn;
                 fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                 lastFanChange = Date.now();  // Track when we changed it
+                intendedFanState = fanOn;  // Track what we intended
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
                 // Don't call updateDashboard() to avoid race condition overwriting our explicit state
             } catch (error) {
@@ -691,13 +693,22 @@
                     document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
                     document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
 
-                    // Update fan toggle (skip if user just changed it to avoid race condition)
+                    // Update fan toggle (but preserve user's intended state until server confirms or timeout)
+                    const fanToggle = document.getElementById('fan-toggle');
+                    const serverFanState = hvacState.fan || false;
                     const timeSinceLastFanChange = Date.now() - lastFanChange;
-                    if (timeSinceLastFanChange > 3000) {  // Wait 3 seconds after manual change
-                        const fanToggle = document.getElementById('fan-toggle');
-                        fanToggle.checked = hvacState.fan || false;
+
+                    // Update if: never set by user, server matches intention, or 10+ seconds passed
+                    if (intendedFanState === null ||
+                        serverFanState === intendedFanState ||
+                        timeSinceLastFanChange > 10000) {
+                        fanToggle.checked = serverFanState;
                         document.getElementById('fan-label').textContent = 
-                            fanToggle.checked ? 'CONTINUOUS' : 'AUTO';
+                            serverFanState ? 'CONTINUOUS' : 'AUTO';
+                        // Clear intended state if server now matches or timeout expired
+                        if (serverFanState === intendedFanState || timeSinceLastFanChange > 10000) {
+                            intendedFanState = null;
+                        }
                     }
                     
                     // Update schedule status
