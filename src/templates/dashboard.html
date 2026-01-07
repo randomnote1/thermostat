@@ -923,14 +923,14 @@
                 if (!response.ok) throw new Error('Failed to resume schedules');
                 
                 showSuccess('Schedules resumed');
-                // Track what the user set to prevent polling from overwriting
-                lastScheduleChangeTime = Date.now();
-                lastScheduleOnHoldValue = false;  // Resume clears hold
                 // Immediately update UI with expected state
                 updateScheduleStatus({
                     schedule_enabled: true,
                     schedule_on_hold: false
                 });
+                // Track what the user set AFTER UI update to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleOnHoldValue = false;  // Resume clears hold
             } catch (error) {
                 showError('Failed to resume schedules: ' + error.message);
             }
@@ -947,14 +947,14 @@
                 if (!response.ok) throw new Error('Failed to enable schedules');
                 
                 showSuccess('Schedules enabled');
-                // Track what the user set to prevent polling from overwriting
-                lastScheduleChangeTime = Date.now();
-                lastScheduleEnabledValue = true;
                 // Immediately update UI with expected state
                 updateScheduleStatus({
                     schedule_enabled: true,
                     schedule_on_hold: false
                 });
+                // Track what the user set AFTER UI update to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleEnabledValue = true;
             } catch (error) {
                 showError('Failed to enable schedules: ' + error.message);
             }
@@ -975,14 +975,14 @@
                 if (!response.ok) throw new Error('Failed to disable schedules');
                 
                 showSuccess('Schedules disabled');
-                // Track what the user set to prevent polling from overwriting
-                lastScheduleChangeTime = Date.now();
-                lastScheduleEnabledValue = false;
                 // Immediately update UI with expected state
                 updateScheduleStatus({
                     schedule_enabled: false,
                     schedule_on_hold: false
                 });
+                // Track what the user set AFTER UI update to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleEnabledValue = false;
             } catch (error) {
                 showError('Failed to disable schedules: ' + error.message);
             }
