@@ -354,6 +354,11 @@
 <body>
     <div class="container">
         <div class="nav">
+            <div class="hamburger" onclick="toggleNav()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
             <div class="nav-links">
                 <a href="/">Dashboard</a>
                 <a href="/schedules">Schedules</a>
@@ -450,6 +455,11 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
+            function toggleNav() {
+                const navLinks = document.getElementById('nav-links');
+                navLinks.classList.toggle('active');
+            }
+
         let currentSensors = [];
 
         // Show message to user

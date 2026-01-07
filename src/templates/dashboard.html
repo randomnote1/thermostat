@@ -358,54 +358,7 @@
             margin-top: 10px;
         }
 
-        .hamburger {
-            display: none;
-            flex-direction: column;
-            gap: 4px;
-            cursor: pointer;
-            padding: 5px;
-        }
-
-        .hamburger span {
-            width: 25px;
-            height: 3px;
-            background: white;
-            border-radius: 2px;
-            transition: all 0.3s;
-        }
-
         @media (max-width: 768px) {
-            .hamburger {
-                display: flex;
-            }
-
-            .nav {
-                flex-wrap: wrap;
-            }
-
-            .nav-links {
-                display: none;
-                width: 100%;
-                flex-direction: column;
-                order: 3;
-                margin-top: 10px;
-            }
-
-            .nav-links.active {
-                display: flex;
-            }
-
-            .nav a {
-                width: 100%;
-                text-align: center;
-            }
-
-            .theme-toggle {
-                width: 35px;
-                height: 35px;
-                font-size: 1em;
-            }
-
             .temp-value {
                 font-size: 2.5em;
             }
@@ -460,6 +413,23 @@
                 width: 30px;
                 height: 30px;
                 font-size: 1em;
+            }
+
+            .sensor-list {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 8px;
+            }
+
+            .sensor-item {
+                padding: 10px;
+            }
+
+            .sensor-item .name {
+                font-size: 0.85em;
+            }
+
+            .sensor-item .value {
+                font-size: 1.3em;
             }
 
             .card h2 {

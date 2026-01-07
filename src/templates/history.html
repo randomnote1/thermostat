@@ -195,7 +195,12 @@
 <body>
     <div class="container">
         <div class="nav">
-            <div class="nav-links">
+            <div class="hamburger" onclick="toggleNav()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="nav-links" id="nav-links">
                 <a href="/">Dashboard</a>
                 <a href="/schedules">Schedules</a>
                 <a href="/history" class="active">History</a>
@@ -352,6 +357,11 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
+            function toggleNav() {
+                const navLinks = document.getElementById('nav-links');
+                navLinks.classList.toggle('active');
+            }
+
         // Global temperature units
         let temperatureUnits = 'F';
         let temperatureSymbol = '°F';
