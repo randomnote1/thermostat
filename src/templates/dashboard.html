@@ -204,6 +204,8 @@
 
         .control-section {
             margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .control-section h3 {
@@ -211,6 +213,7 @@
             margin-top: 0;
             margin-bottom: 15px;
             font-size: 1.1em;
+            flex-shrink: 0;
         }
 
         .mode-buttons {
@@ -270,10 +273,12 @@
         }
 
         .schedule-status {
-            padding: 12px;
+            padding: 8px 12px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             font-weight: 500;
+            font-size: 0.85em;
+            line-height: 1.3;
         }
 
         .schedule-status.on-hold {
@@ -295,9 +300,10 @@
         }
 
         .schedule-buttons {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 10px;
+            flex: 1;
         }
 
         .schedule-btn {
