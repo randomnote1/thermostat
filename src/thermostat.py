@@ -707,6 +707,11 @@ class ThermostatController:
                 self.hvac_state['fan'] = fan_on
                 logger.info(f"Fan manually set to {'ON' if fan_on else 'OFF'}")
                 
+                # Log the change to database
+                if self.db:
+                    system_temp = self._calculate_system_temperature(self.last_readings)
+                    self._log_hvac_history(system_temp)
+                
                 return {'success': True, 'message': f"Fan turned {'ON' if fan_on else 'OFF'}"}
             
             elif command == 'resume_schedules':
