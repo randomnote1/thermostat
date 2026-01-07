@@ -926,7 +926,11 @@
                 // Track what the user set to prevent polling from overwriting
                 lastScheduleChangeTime = Date.now();
                 lastScheduleOnHoldValue = false;  // Resume clears hold
-                // Don't call updateDashboard() - let polling handle it
+                // Immediately update UI with expected state
+                updateScheduleStatus({
+                    schedule_enabled: true,
+                    schedule_on_hold: false
+                });
             } catch (error) {
                 showError('Failed to resume schedules: ' + error.message);
             }
@@ -946,7 +950,11 @@
                 // Track what the user set to prevent polling from overwriting
                 lastScheduleChangeTime = Date.now();
                 lastScheduleEnabledValue = true;
-                // Don't call updateDashboard() - let polling handle it
+                // Immediately update UI with expected state
+                updateScheduleStatus({
+                    schedule_enabled: true,
+                    schedule_on_hold: false
+                });
             } catch (error) {
                 showError('Failed to enable schedules: ' + error.message);
             }
@@ -970,7 +978,11 @@
                 // Track what the user set to prevent polling from overwriting
                 lastScheduleChangeTime = Date.now();
                 lastScheduleEnabledValue = false;
-                // Don't call updateDashboard() - let polling handle it
+                // Immediately update UI with expected state
+                updateScheduleStatus({
+                    schedule_enabled: false,
+                    schedule_on_hold: false
+                });
             } catch (error) {
                 showError('Failed to disable schedules: ' + error.message);
             }
