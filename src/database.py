@@ -20,6 +20,7 @@ class ThermostatDatabase:
     def __init__(self, db_path: str = 'thermostat.db'):
         self.db_path = db_path
         self._init_database()
+        self._migrate_schema()  # Auto-migrate on initialization
     
     @contextmanager
     def _get_connection(self):
@@ -111,8 +112,10 @@ class ThermostatDatabase:
                 CREATE TABLE IF NOT EXISTS hvac_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     system_temp REAL,
-                    target_temp REAL,
+                    target_temp_heat REAL,
+                    target_temp_cool REAL,
                     hvac_mode TEXT,
+                    fan_mode TEXT,
                     heat_active INTEGER,
                     cool_active INTEGER,
                     fan_active INTEGER,
@@ -144,6 +147,79 @@ class ThermostatDatabase:
             ''')
             
             logger.info(f"Database initialized at {self.db_path}")
+    
+    def _migrate_schema(self) -> None:
+        """Apply schema migrations for database upgrades"""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Migration: Add target_temp_heat, target_temp_cool, fan_mode to hvac_history
+            cursor.execute("PRAGMA table_info(hvac_history)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'target_temp_heat' not in columns or 'target_temp_cool' not in columns:
+                logger.info("Migrating hvac_history table schema...")
+                
+                try:
+                    # Create new table with updated schema
+                    cursor.execute('''
+                        CREATE TABLE hvac_history_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            system_temp REAL,
+                            target_temp_heat REAL,
+                            target_temp_cool REAL,
+                            hvac_mode TEXT,
+                            fan_mode TEXT,
+                            heat_active INTEGER,
+                            cool_active INTEGER,
+                            fan_active INTEGER,
+                            heat2_active INTEGER,
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    ''')
+                    
+                    # Migrate data from old table (handle legacy target_temp field)
+                    cursor.execute('''
+                        INSERT INTO hvac_history_new 
+                            (id, system_temp, target_temp_heat, target_temp_cool, hvac_mode, fan_mode,
+                             heat_active, cool_active, fan_active, heat2_active, timestamp)
+                        SELECT 
+                            id,
+                            system_temp,
+                            CASE 
+                                WHEN hvac_mode = 'heat' THEN target_temp
+                                WHEN hvac_mode = 'auto' THEN target_temp
+                                ELSE NULL
+                            END as target_temp_heat,
+                            CASE 
+                                WHEN hvac_mode = 'cool' THEN target_temp
+                                WHEN hvac_mode = 'auto' THEN target_temp
+                                ELSE NULL
+                            END as target_temp_cool,
+                            hvac_mode,
+                            'auto' as fan_mode,
+                            heat_active,
+                            cool_active,
+                            fan_active,
+                            heat2_active,
+                            timestamp
+                        FROM hvac_history
+                    ''')
+                    
+                    # Drop old table and rename new one
+                    cursor.execute("DROP TABLE hvac_history")
+                    cursor.execute("ALTER TABLE hvac_history_new RENAME TO hvac_history")
+                    
+                    # Recreate index
+                    cursor.execute('''
+                        CREATE INDEX idx_hvac_history_timestamp 
+                        ON hvac_history(timestamp)
+                    ''')
+                    
+                    logger.info("✓ hvac_history table migration completed")
+                except Exception as e:
+                    logger.error(f"Schema migration failed: {e}")
+                    raise
     
     # ==================== SETTINGS ====================
     
@@ -474,16 +550,30 @@ class ThermostatDatabase:
     
     # ==================== HVAC HISTORY ====================
     
-    def log_hvac_state(self, system_temp: Optional[float], target_temp: Optional[float],
-                      hvac_mode: str, heat: bool, cool: bool, fan: bool, heat2: bool) -> None:
-        """Log HVAC state"""
+    def log_hvac_state(self, system_temp: Optional[float], 
+                      target_temp_heat: Optional[float], target_temp_cool: Optional[float],
+                      hvac_mode: str, fan_mode: str, heat: bool, cool: bool, fan: bool, heat2: bool) -> None:
+        """Log HVAC state with both target temperatures
+        
+        Args:
+            system_temp: Current system temperature
+            target_temp_heat: Heating setpoint
+            target_temp_cool: Cooling setpoint
+            hvac_mode: HVAC mode (heat/cool/auto/off)
+            fan_mode: Fan mode (auto/on)
+            heat: Heat relay state
+            cool: Cool relay state
+            fan: Fan relay state
+            heat2: Heat2 relay state (aux/emergency heat)
+        """
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO hvac_history (system_temp, target_temp, hvac_mode, 
-                                        heat_active, cool_active, fan_active, heat2_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (system_temp, target_temp, hvac_mode, 
+                INSERT INTO hvac_history (system_temp, target_temp_heat, target_temp_cool, 
+                                        hvac_mode, fan_mode, heat_active, cool_active, 
+                                        fan_active, heat2_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (system_temp, target_temp_heat, target_temp_cool, hvac_mode, fan_mode,
                   1 if heat else 0, 1 if cool else 0, 1 if fan else 0, 1 if heat2 else 0))
     
     def get_hvac_history(self, hours: int = 24, limit: int = 1000) -> List[Dict]:

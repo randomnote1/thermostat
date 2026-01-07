@@ -534,6 +534,7 @@ sudo journalctl -u thermostat.service -n 100
 - [docs/SENSOR_MOUNTING.md](docs/SENSOR_MOUNTING.md) - Sensor installation guide
 - [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md) - Web dashboard setup and usage
 - [docs/CONTROL_FEATURES.md](docs/CONTROL_FEATURES.md) - **Remote control guide**
+- [docs/HVAC_HISTORY_SCHEMA_FIX.md](docs/HVAC_HISTORY_SCHEMA_FIX.md) - Database schema improvements
 - [docs/TESTING.md](docs/TESTING.md) - Testing procedures
 - [docs/STRUCTURE.md](docs/STRUCTURE.md) - Project structure reference
 

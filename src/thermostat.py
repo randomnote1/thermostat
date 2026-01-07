@@ -608,16 +608,12 @@ class ThermostatController:
         if not self.db:
             return
         
-        target_temp = None
-        if self.hvac_mode == 'heat':
-            target_temp = self.target_temp_heat
-        elif self.hvac_mode == 'cool':
-            target_temp = self.target_temp_cool
-        
         self.db.log_hvac_state(
             system_temp=system_temp,
-            target_temp=target_temp,
+            target_temp_heat=self.target_temp_heat,
+            target_temp_cool=self.target_temp_cool,
             hvac_mode=self.hvac_mode,
+            fan_mode=self.fan_mode,
             heat=self.hvac_state['heat'],
             cool=self.hvac_state['cool'],
             fan=self.hvac_state['fan'],

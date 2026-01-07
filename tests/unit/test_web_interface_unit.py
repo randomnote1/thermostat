@@ -395,7 +395,7 @@ class TestHistoryEndpoints(unittest.TestCase):
         
         # Add some test data
         self.db.log_sensor_reading('sensor1', 'Living Room', 72.0, False)
-        self.db.log_hvac_state(72.0, 68.0, 'heat', True, False, True, False)
+        self.db.log_hvac_state(72.0, 68.0, 75.0, 'heat', 'auto', True, False, True, False)
         self.db.log_setting_change('hvac_mode', 'off', 'heat', 'web_interface')
     
     def tearDown(self):

@@ -277,8 +277,10 @@
                             <tr>
                                 <th>Time</th>
                                 <th>System Temp</th>
-                                <th>Target Temp</th>
+                                <th>Target Heat</th>
+                                <th>Target Cool</th>
                                 <th>Mode</th>
+                                <th>Fan Mode</th>
                                 <th>Heat</th>
                                 <th>Cool</th>
                                 <th>Fan</th>
@@ -286,7 +288,7 @@
                         </thead>
                         <tbody id="hvac-history">
                             <tr>
-                                <td colspan="7" class="loading">Loading...</td>
+                                <td colspan="9" class="loading">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -511,7 +513,7 @@
                 const tbody = document.getElementById('hvac-history');
                 
                 if (history.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #718096;">No HVAC history</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #718096;">No HVAC history</td></tr>';
                     return;
                 }
                 
@@ -521,17 +523,28 @@
                     temperatureSymbol = data.temperature_symbol || '°F';
                 }
                 
-                tbody.innerHTML = history.map(record => `
-                    <tr>
-                        <td>${formatDateTime(record.timestamp)}</td>
-                        <td>${record.system_temp ? record.system_temp.toFixed(1) + temperatureSymbol : '-'}</td>
-                        <td>${record.target_temp ? record.target_temp.toFixed(1) + temperatureSymbol : '-'}</td>
-                        <td><strong>${(record.hvac_mode || 'off').toUpperCase()}</strong></td>
-                        <td><span class="badge ${record.heat_active ? 'badge-on' : 'badge-off'}">${record.heat_active ? 'ON' : 'OFF'}</span></td>
-                        <td><span class="badge ${record.cool_active ? 'badge-on' : 'badge-off'}">${record.cool_active ? 'ON' : 'OFF'}</span></td>
-                        <td><span class="badge ${record.fan_active ? 'badge-on' : 'badge-off'}">${record.fan_active ? 'ON' : 'OFF'}</span></td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = history.map(record => {
+                    // Handle both new schema (target_temp_heat/cool) and legacy (target_temp)
+                    const targetHeat = record.target_temp_heat ? record.target_temp_heat.toFixed(1) + temperatureSymbol :
+                        (record.target_temp && record.hvac_mode === 'heat' ? record.target_temp.toFixed(1) + temperatureSymbol : '-');
+                    const targetCool = record.target_temp_cool ? record.target_temp_cool.toFixed(1) + temperatureSymbol :
+                        (record.target_temp && record.hvac_mode === 'cool' ? record.target_temp.toFixed(1) + temperatureSymbol : '-');
+                    const fanMode = record.fan_mode || 'auto';
+
+                    return `
+                        <tr>
+                            <td>${formatDateTime(record.timestamp)}</td>
+                            <td>${record.system_temp ? record.system_temp.toFixed(1) + temperatureSymbol : '-'}</td>
+                            <td>${targetHeat}</td>
+                            <td>${targetCool}</td>
+                            <td><strong>${(record.hvac_mode || 'off').toUpperCase()}</strong></td>
+                            <td><em>${fanMode.toUpperCase()}</em></td>
+                            <td><span class="badge ${record.heat_active ? 'badge-on' : 'badge-off'}">${record.heat_active ? 'ON' : 'OFF'}</span></td>
+                            <td><span class="badge ${record.cool_active ? 'badge-on' : 'badge-off'}">${record.cool_active ? 'ON' : 'OFF'}</span></td>
+                            <td><span class="badge ${record.fan_active ? 'badge-on' : 'badge-off'}">${record.fan_active ? 'ON' : 'OFF'}</span></td>
+                        </tr>
+                    `;
+                }).join('');
             } catch (error) {
                 console.error('Failed to load HVAC history:', error);
             }

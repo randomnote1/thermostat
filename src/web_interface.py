@@ -485,6 +485,11 @@ def api_hvac_history():
         for entry in history:
             if 'system_temp' in entry and entry['system_temp'] is not None:
                 entry['system_temp'] = convert_temperature(entry['system_temp'], 'C', units)
+            if 'target_temp_heat' in entry and entry['target_temp_heat'] is not None:
+                entry['target_temp_heat'] = convert_temperature(entry['target_temp_heat'], 'C', units)
+            if 'target_temp_cool' in entry and entry['target_temp_cool'] is not None:
+                entry['target_temp_cool'] = convert_temperature(entry['target_temp_cool'], 'C', units)
+            # Handle legacy target_temp field if it exists
             if 'target_temp' in entry and entry['target_temp'] is not None:
                 entry['target_temp'] = convert_temperature(entry['target_temp'], 'C', units)
         

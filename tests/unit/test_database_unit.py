@@ -345,8 +345,10 @@ class TestHistoryLogging(unittest.TestCase):
         """Test logging HVAC state changes"""
         self.db.log_hvac_state(
             system_temp=72.0,
-            target_temp=68.0,
+            target_temp_heat=68.0,
+            target_temp_cool=75.0,
             hvac_mode='heat',
+            fan_mode='auto',
             heat=True,
             cool=False,
             fan=True,
@@ -358,6 +360,9 @@ class TestHistoryLogging(unittest.TestCase):
         self.assertEqual(history[0]['hvac_mode'], 'heat')
         self.assertEqual(history[0]['heat_active'], 1)
         self.assertEqual(history[0]['fan_active'], 1)
+        self.assertEqual(history[0]['target_temp_heat'], 68.0)
+        self.assertEqual(history[0]['target_temp_cool'], 75.0)
+        self.assertEqual(history[0]['fan_mode'], 'auto')
     
     def test_log_setting_change(self):
         """Test logging setting changes with audit trail"""
@@ -470,7 +475,7 @@ class TestDatabaseMaintenance(unittest.TestCase):
         self.db.save_settings(68.0, 74.0, 'heat')
         self.db.create_schedule("Morning", "1,2,3,4,5", "06:00", 68.0, None, "heat")
         self.db.log_sensor_reading('sensor1', 'Room1', 70.0, False)
-        self.db.log_hvac_state(72.0, 68.0, 'heat', True, False, True, False)
+        self.db.log_hvac_state(72.0, 68.0, 75.0, 'heat', 'auto', True, False, True, False)
         self.db.log_setting_change('hvac_mode', 'off', 'heat', 'system')
         
         stats = self.db.get_database_stats()
@@ -867,7 +872,7 @@ class TestDatabaseMaintenance(unittest.TestCase):
         """Test cleanup of old history data"""
         # Add some history data
         for i in range(50):
-            self.db.log_hvac_state(20.0, 20.0, 'heat', True, False, False, False)
+            self.db.log_hvac_state(20.0, 19.0, 22.0, 'heat', 'auto', True, False, False, False)
         
         # Cleanup data older than 0 days (should delete all)
         self.db.cleanup_old_history(days_to_keep=0)
@@ -926,7 +931,7 @@ class TestSettingsEdgeCases(unittest.TestCase):
         """Test manual vacuum operation"""
         # Add and delete data to create fragmentation
         for i in range(50):
-            self.db.log_hvac_state(20.0, 20.0, 'heat', True, False, False, False)
+            self.db.log_hvac_state(20.0, 19.0, 22.0, 'heat', 'auto', True, False, False, False)
         
         self.db.cleanup_old_history(days_to_keep=0)  # Delete all
         
