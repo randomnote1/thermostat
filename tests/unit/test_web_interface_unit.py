@@ -566,19 +566,22 @@ class TestAPIEndpoints(unittest.TestCase):
         # Add a sensor first
         self.db.add_sensor('28-0001', 'Living Room', enabled=True, monitored=True)
         
-        # Update the sensor
+        # Update the sensor (monitored is automatically set to match enabled)
         response = self.client.put('/api/sensors/config/28-0001',
                                    json={
                                        'name': 'Family Room',
-                                       'enabled': False,
-                                       'monitored': False
+                                       'enabled': False
                                    })
         self.assertEqual(response.status_code, 200)
         
-        # Verify update
+        # Verify update (monitored should automatically be False since enabled is False)
         sensor = self.db.get_sensor('28-0001')
+        self.assertIsNotNone(sensor, "Sensor should exist after update")
+        # Type narrowing for Pylance - after assertIsNotNone, sensor is guaranteed non-None
+        assert sensor is not None
         self.assertEqual(sensor['name'], 'Family Room')
         self.assertFalse(sensor['enabled'])
+        self.assertFalse(sensor['monitored'])  # Automatically set to match enabled
     
     def test_sensor_update_not_found(self):
         """Test updating non-existent sensor"""

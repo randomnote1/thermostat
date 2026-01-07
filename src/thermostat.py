@@ -198,11 +198,11 @@ class ThermostatController:
         
         for sensor in sensors:
             self.sensor_map[sensor['sensor_id']] = sensor['name']
-            if sensor['monitored']:
-                self.monitored_sensors.append(sensor['sensor_id'])
+            # All enabled sensors are automatically monitored for anomalies
+            self.monitored_sensors.append(sensor['sensor_id'])
         
-        logger.debug(f"Loaded {len(self.sensor_map)} sensors from database "
-                    f"({len(self.monitored_sensors)} monitored)")
+        logger.debug(f"Loaded {len(self.sensor_map)} enabled sensors from database "
+                    f"(all automatically monitored for anomalies)")
     
     def _register_new_sensors(self, detected_sensors: List[str]) -> None:
         """Auto-register newly detected sensors in the database"""
@@ -214,7 +214,7 @@ class ThermostatController:
             if not existing:
                 # Auto-register with a default name
                 name = f"Sensor {sensor_id[-6:]}"  # Last 6 chars of ID
-                self.db.add_sensor(sensor_id, name, enabled=True, monitored=False)
+                self.db.add_sensor(sensor_id, name, enabled=True, monitored=True)
                 logger.info(f"Auto-registered new sensor: {sensor_id} as '{name}'")
                 
                 # Reload sensor map to include the new sensor
@@ -258,7 +258,11 @@ class ThermostatController:
         return readings
     
     def detect_anomalies(self, readings: List[SensorReading]) -> None:
-        """Detect compromised sensors (e.g., near active fireplace)"""
+        """Detect compromised sensors (e.g., near active fireplace)
+        
+        All enabled sensors are automatically monitored for anomalies like rapid
+        temperature changes and deviations from the average.
+        """
         if len(readings) < 2:
             return
         

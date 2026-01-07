@@ -340,8 +340,7 @@ The web interface is available at `http://your-raspberry-pi-ip:5000` with four m
 4. **Settings** - Configure preferences and sensor names
    - Change temperature display units (°F, °C, K)
    - Rename sensors (e.g., "Living Room", "Bedroom")
-   - Enable/disable sensors
-   - Configure which sensors are monitored for fireplace anomalies
+   - Enable/disable sensors (all enabled sensors are automatically monitored for anomalies)
    - View database statistics
 
 ### Key Configuration Settings

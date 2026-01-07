@@ -436,8 +436,9 @@
                 
                 <div class="info-box">
                     <p><strong>Sensor Names:</strong> Give each sensor a meaningful name (e.g., "Living Room", "Bedroom")</p>
-                    <p><strong>Enabled:</strong> Include sensor in temperature calculations</p>
-                    <p><strong>Monitored:</strong> Watch for fireplace anomalies (rapid temperature changes)</p>
+                    <p><strong>Enabled:</strong> Include sensor in temperature calculations. Enabled sensors are automatically monitored for
+                        anomalies like rapid temperature changes (e.g., fireplace turning on) and will be temporarily excluded from HVAC
+                        control when anomalies are detected.</p>
                 </div>
 
                 <div class="sensor-list" id="sensor-list">
@@ -547,17 +548,6 @@
                             </label>
                         </div>
                         <div class="sensor-control-row">
-                            <label class="checkbox-label">
-                                <input 
-                                    type="checkbox" 
-                                    id="monitored-${escapeHtml(sensor.sensor_id)}"
-                                    ${sensor.monitored ? 'checked' : ''}
-                                    data-sensor-id="${escapeHtml(sensor.sensor_id)}"
-                                >
-                                Monitored (watch for fireplace anomalies)
-                            </label>
-                        </div>
-                        <div class="sensor-control-row">
                             <button 
                                 class="save-button" 
                                 onclick="saveSensor('${escapeHtml(sensor.sensor_id)}')"
@@ -575,7 +565,6 @@
         async function saveSensor(sensorId) {
             const nameInput = document.getElementById(`name-${sensorId}`);
             const enabledInput = document.getElementById(`enabled-${sensorId}`);
-            const monitoredInput = document.getElementById(`monitored-${sensorId}`);
             
             const saveButton = event.target;
             saveButton.disabled = true;
@@ -588,7 +577,7 @@
                     body: JSON.stringify({
                         name: nameInput.value,
                         enabled: enabledInput.checked,
-                        monitored: monitoredInput.checked
+                        monitored: enabledInput.checked  // Automatically match enabled state
                     })
                 });
                 

@@ -6,8 +6,9 @@ Added a comprehensive Settings page to the web interface allowing users to:
 - Change temperature display units (Fahrenheit, Celsius, or Kelvin)
 - Rename sensors with friendly names (e.g., "Living Room", "Bedroom")
 - Enable/disable individual sensors
-- Configure which sensors are monitored for fireplace anomaly detection
 - View system and database information
+
+All enabled sensors are automatically monitored for anomalies (like rapid temperature changes from a fireplace).
 
 ## Files Changed
 
@@ -37,7 +38,8 @@ Changes apply immediately across all pages and are persisted to the database.
 For each sensor, users can:
 1. **Set Display Name** - Replace sensor IDs with meaningful names
 2. **Enable/Disable** - Control which sensors are included in temperature calculations
-3. **Monitor for Anomalies** - Flag sensors near the fireplace for anomaly detection
+
+**Note:** All enabled sensors are automatically monitored for anomalies such as rapid temperature changes (e.g., fireplace turning on). The system will temporarily exclude sensors from HVAC control when anomalies are detected.
 
 ### System Information
 View real-time statistics:
@@ -66,12 +68,11 @@ Returns all sensor configurations
 ```
 
 ### PUT `/api/sensors/config/{sensor_id}`
-Update sensor configuration
+Update sensor configuration. The `monitored` field is automatically set to match the `enabled` state.
 ```json
 {
   "name": "Living Room",
-  "enabled": true,
-  "monitored": false
+  "enabled": true
 }
 ```
 
@@ -131,8 +132,7 @@ Potential additions to Settings page:
 1. Navigate to `http://your-raspberry-pi-ip:5000/settings`
 2. Change temperature units by selecting F, C, or K
 3. Click on a sensor's name field to rename it
-4. Check/uncheck "Enabled" to include/exclude sensor
-5. Check "Monitored" for sensors near the fireplace
-6. Click "Save Changes" for each sensor modified
+4. Check/uncheck "Enabled" to include/exclude sensor from HVAC control
+5. Click "Save Changes" for each sensor modified
 
-All changes are immediately saved to the database and take effect on the next sensor read cycle.
+All changes are immediately saved to the database and take effect on the next sensor read cycle. Enabled sensors are automatically monitored for anomalies.
