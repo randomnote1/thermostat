@@ -611,7 +611,7 @@
                 fanToggle.checked = fanOn;
                 fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
-                updateDashboard();
+                // Don't call updateDashboard() to avoid race condition overwriting our explicit state
             } catch (error) {
                 // Revert the toggle to previous state on error
                 fanToggle.checked = !fanOn;
