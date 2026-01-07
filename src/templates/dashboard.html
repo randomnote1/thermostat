@@ -558,12 +558,14 @@
 
                 if (type === 'heat') {
                     currentTargetHeat = newTemp;
+                    document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
                 } else {
                     currentTargetCool = newTemp;
+                    document.getElementById('target-cool').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
                 }
 
                 showSuccess(`Target ${type} temperature set to ${newTemp.toFixed(1)}${temperatureSymbol}`);
-                updateDashboard();
+                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
             } catch (error) {
                 showError(`Failed to set temperature: ${error.message}`);
             }
@@ -584,8 +586,9 @@
 
                 currentMode = mode;
                 updateModeButtons();
+                document.getElementById('hvac-mode').textContent = mode.toUpperCase();
                 showSuccess(`HVAC mode set to ${mode.toUpperCase()}`);
-                updateDashboard();
+                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
             } catch (error) {
                 showError(`Failed to set mode: ${error.message}`);
             }
@@ -606,7 +609,10 @@
                     throw new Error(error.error || 'Failed to set fan');
                 }
 
+                // Update UI immediately
+                document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
+                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
             } catch (error) {
                 showError(`Failed to set fan: ${error.message}`);
             }
