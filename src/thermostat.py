@@ -150,6 +150,7 @@ class ThermostatController:
         self.sensor_history: Dict[str, List[SensorReading]] = {}
         self.compromised_sensors: Dict[str, datetime] = {}
         self.hvac_state = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
+        self.manual_fan_mode = False  # When True, fan is manually controlled, not automatic
         self.last_hvac_change = datetime.now()
         self.last_sensor_read = datetime.now() - timedelta(seconds=self.sensor_read_interval)
         self.last_history_log = datetime.now()
@@ -382,6 +383,10 @@ class ThermostatController:
             logger.error("Safety violation: Attempted to activate heat and cool simultaneously!")
             return
         
+        # If manual fan mode is active, preserve the manual fan state
+        if self.manual_fan_mode:
+            fan = self.hvac_state['fan']
+        
         # Check if state is changing
         new_state = {'heat': heat, 'cool': cool, 'fan': fan, 'heat2': heat2}
         if new_state == self.hvac_state:
@@ -424,6 +429,7 @@ class ThermostatController:
         status = {
             'hvac_mode': self.hvac_mode,
             'hvac_state': self.hvac_state.copy(),
+            'manual_fan_mode': self.manual_fan_mode,
             'target_temp_heat': self.target_temp_heat,
             'target_temp_cool': self.target_temp_cool,
             'compromised_sensors': list(self.compromised_sensors.keys()),
@@ -700,19 +706,22 @@ class ThermostatController:
             elif command == 'set_fan':
                 fan_on = params.get('fan_on', False)
                 
+                # Enable manual fan mode and set the fan state
+                self.manual_fan_mode = True
+                
                 # Manual fan control
                 if GPIO:
                     GPIO.output(self.gpio_relay_fan, GPIO.HIGH if fan_on else GPIO.LOW)
                 
                 self.hvac_state['fan'] = fan_on
-                logger.info(f"Fan manually set to {'ON' if fan_on else 'OFF'}")
+                logger.info(f"Fan manually set to {'ON' if fan_on else 'OFF'} (manual mode enabled)")
                 
                 # Log the change to database
                 if self.db:
-                    system_temp = self._calculate_system_temperature(self.last_readings)
+                    system_temp = self.calculate_system_temperature(self.latest_readings)
                     self._log_hvac_history(system_temp)
                 
-                return {'success': True, 'message': f"Fan turned {'ON' if fan_on else 'OFF'}"}
+                return {'success': True, 'message': f"Fan set to {'CONTINUOUS' if fan_on else 'AUTO'}"}
             
             elif command == 'resume_schedules':
                 return self.resume_schedules()

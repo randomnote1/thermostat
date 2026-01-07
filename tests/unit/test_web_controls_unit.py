@@ -175,7 +175,8 @@ class TestFanControl:
         
         assert result['success'] is True
         assert mock_controller.hvac_state['fan'] is True
-        assert 'Fan turned ON' in result['message']
+        assert mock_controller.manual_fan_mode is True
+        assert 'CONTINUOUS' in result['message']
     
     def test_set_fan_off(self, mock_controller):
         """Test turning fan off"""
@@ -187,7 +188,8 @@ class TestFanControl:
         
         assert result['success'] is True
         assert mock_controller.hvac_state['fan'] is False
-        assert 'Fan turned OFF' in result['message']
+        assert mock_controller.manual_fan_mode is True
+        assert 'AUTO' in result['message']
 
 
 class TestControlValidation:

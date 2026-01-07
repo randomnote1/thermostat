@@ -496,9 +496,7 @@
         let errorCount = 0;
         let currentMode = 'off';
         let currentTargetHeat = 68;
-        let currentTargetCool = 74;
-        let lastFanChange = 0;  // Timestamp of last manual fan change
-            let intendedFanState = null;  // What we set the fan to (null = not set by user)
+            let currentTargetCool = 74;
 
             // Global temperature units
             let temperatureUnits = 'F';
@@ -593,10 +591,7 @@
             }
         }
 
-        async function setFan(fanOn) {
-            const fanToggle = document.getElementById('fan-toggle');
-            const fanLabel = document.getElementById('fan-label');
-            
+            async function setFan(fanOn) {
             try {
                 const response = await fetch('/api/control/fan', {
                     method: 'POST',
@@ -606,20 +601,13 @@
 
                 if (!response.ok) {
                     const error = await response.json();
+                    // Revert toggle on error
+                    document.getElementById('fan-toggle').checked = !fanOn;
                     throw new Error(error.error || 'Failed to set fan');
                 }
 
-                // Explicitly set the checkbox state to confirm
-                fanToggle.checked = fanOn;
-                fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
-                lastFanChange = Date.now();  // Track when we changed it
-                intendedFanState = fanOn;  // Track what we intended
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
-                // Don't call updateDashboard() to avoid race condition overwriting our explicit state
             } catch (error) {
-                // Revert the toggle to previous state on error
-                fanToggle.checked = !fanOn;
-                fanLabel.textContent = !fanOn ? 'CONTINUOUS' : 'AUTO';
                 showError(`Failed to set fan: ${error.message}`);
             }
         }
@@ -693,23 +681,12 @@
                     document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
                     document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
 
-                    // Update fan toggle (but preserve user's intended state until server confirms or timeout)
+                    // Update fan toggle based on manual mode
                     const fanToggle = document.getElementById('fan-toggle');
-                    const serverFanState = hvacState.fan || false;
-                    const timeSinceLastFanChange = Date.now() - lastFanChange;
-
-                    // Update if: never set by user, server matches intention, or 10+ seconds passed
-                    if (intendedFanState === null ||
-                        serverFanState === intendedFanState ||
-                        timeSinceLastFanChange > 10000) {
-                        fanToggle.checked = serverFanState;
-                        document.getElementById('fan-label').textContent = 
-                            serverFanState ? 'CONTINUOUS' : 'AUTO';
-                        // Clear intended state if server now matches or timeout expired
-                        if (serverFanState === intendedFanState || timeSinceLastFanChange > 10000) {
-                            intendedFanState = null;
-                        }
-                    }
+                    const fanLabel = document.getElementById('fan-label');
+                    const fanOn = hvacState.fan || false;
+                    fanToggle.checked = fanOn;
+                    fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                     
                     // Update schedule status
                     updateScheduleStatus(data);
@@ -718,7 +695,7 @@
                     updateSensors(data.sensor_readings, data.compromised_sensors);
 
                     // Update timestamp
-                    const lastUpdate = data.last_update ? 
+                    const lastUpdate = data.last_update ?
                         new Date(data.last_update).toLocaleTimeString() : '--';
                     document.getElementById('last-update').textContent = lastUpdate;
                 })

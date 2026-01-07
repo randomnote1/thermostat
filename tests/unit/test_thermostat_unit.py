@@ -369,6 +369,8 @@ class TestThermostatController(unittest.TestCase):
         self.assertAlmostEqual(status['target_temp_heat'], 20.0, places=1)
         self.assertIn('sensor1', status['compromised_sensors'])
         self.assertEqual(status['sensor_count'], 2)
+        self.assertIn('manual_fan_mode', status)
+        self.assertFalse(status['manual_fan_mode'])  # Default is False
     
     def test_set_schedule_hold(self):
         """Test setting schedule hold after manual changes"""
@@ -479,6 +481,7 @@ class TestThermostatController(unittest.TestCase):
         
         self.assertTrue(result['success'])
         self.assertTrue(self.controller.hvac_state['fan'])
+        self.assertTrue(self.controller.manual_fan_mode)  # Manual mode should be enabled
     
     def test_handle_control_command_resume_schedules(self):
         """Test resume schedules command"""
