@@ -359,8 +359,42 @@
         }
 
         @media (max-width: 768px) {
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .nav a {
+                font-size: 0.9em;
+                padding: 8px 12px;
+            }
+            
+            .theme-toggle {
+                width: 35px;
+                height: 35px;
+                font-size: 1em;
+            }
+            
             .temp-value {
                 font-size: 3em;
+            }
+            
+            .target-temps {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .target-temp .value {
+                font-size: 2.5em;
+            }
+            
+            .hvac-status {
+                justify-content: center;
+            }
+            
+            .hvac-badge {
+                font-size: 0.8em;
+                padding: 6px 10px;
             }
             
             .grid {
