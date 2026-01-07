@@ -581,10 +581,17 @@
             if (type === 'heat') {
                 currentTargetHeat = newTemp;
                 document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+                // Track immediately to prevent polling from overwriting during debounce
+                lastTempChangeHeat = newTemp;
             } else {
                 currentTargetCool = newTemp;
                 document.getElementById('target-cool').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+                // Track immediately to prevent polling from overwriting during debounce
+                lastTempChangeCool = newTemp;
             }
+            
+            // Mark th                    ev                ing                erwriting
+            lastTempChangeTime = Date.now();
 
             // Clear any existing debounce timer
             if (tempDebounceTimer) {
