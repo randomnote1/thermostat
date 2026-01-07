@@ -119,6 +119,7 @@ class ThermostatController:
         self.history_max_disk_percent = float(os.getenv('HISTORY_MAX_DISK_PERCENT', '50.0'))  # 50%
         
         # Load persisted settings from database (stored in Celsius, overrides env)
+        self.manual_fan_mode = False  # Default: fan is automatic (will be overridden by database if saved)
         if self.db:
             saved_settings = self.db.load_settings()
             if saved_settings:
@@ -153,7 +154,6 @@ class ThermostatController:
         self.sensor_history: Dict[str, List[SensorReading]] = {}
         self.compromised_sensors: Dict[str, datetime] = {}
         self.hvac_state = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
-        self.manual_fan_mode = False  # When True, fan is manually controlled, not automatic
         self.last_hvac_change = datetime.now()
         self.last_sensor_read = datetime.now() - timedelta(seconds=self.sensor_read_interval)
         self.last_history_log = datetime.now()
