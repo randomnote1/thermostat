@@ -88,22 +88,18 @@ body {
 }
 
 .theme-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 50px;
-    height: 50px;
+    width: 40px;
+        height: 40px;
     border-radius: 50%;
     background: rgba(255,255,255,0.2);
     border: 2px solid rgba(255,255,255,0.3);
     color: white;
-    font-size: 1.5em;
+    font-size: 1.2em;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s;
-    z-index: 1000;
 }
 
 .theme-toggle:hover {
@@ -113,11 +109,16 @@ body {
 
 .nav {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
+        align-items: center;
     gap: 15px;
     margin-bottom: 20px;
 }
 
+.nav-links {
+    display: flex;
+    gap: 15px;
+}
 .nav a {
     color: white;
     text-decoration: none;

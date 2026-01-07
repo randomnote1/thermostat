@@ -193,15 +193,17 @@
     </style>
 </head>
 <body>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
-        <span id="theme-icon">🌙</span>
-    </button>
     <div class="container">
         <div class="nav">
-            <a href="/">Dashboard</a>
-            <a href="/schedules">Schedules</a>
-            <a href="/history" class="active">History</a>
-            <a href="/settings">Settings</a>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/schedules">Schedules</a>
+                <a href="/history" class="active">History</a>
+                <a href="/settings">Settings</a>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+                <span id="theme-icon">🌙</span>
+            </button>
         </div>
 
         <!-- Tab Selector -->
