@@ -197,18 +197,18 @@
 
         .control-panel {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
             padding: 10px 0;
         }
 
         .control-section {
-            margin-bottom: 20px;
+            margin-bottom: 0;
         }
 
         .control-section h3 {
             color: var(--text-primary);
-            margin-top: 10px;
+            margin-top: 0;
             margin-bottom: 15px;
             font-size: 1.1em;
         }
@@ -241,61 +241,32 @@
             border-color: var(--accent-color);
         }
 
-        .fan-control {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        .fan-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
 
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--border-color);
-            border-radius: 34px;
-            transition: 0.4s;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            border-radius: 50%;
-            transition: 0.4s;
-        }
-
-        .toggle-switch input:checked + .toggle-slider {
-            background-color: #48bb78;
-        }
-
-        .toggle-switch input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        .fan-label {
-            font-weight: bold;
+        .fan-btn {
+            padding: 15px 20px;
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
             color: var(--text-primary);
-            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .fan-btn:hover {
+            border-color: var(--accent-color);
+            opacity: 0.8;
+        }
+
+        .fan-btn.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
         }
 
         .schedule-status {
@@ -325,26 +296,30 @@
 
         .schedule-buttons {
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            flex-wrap: wrap;
         }
 
         .schedule-btn {
-            padding: 10px 20px;
-            border: 2px solid var(--accent-color);
+            padding: 12px 20px;
+            border: 2px solid var(--border-color);
             background: var(--card-bg);
-            color: var(--accent-color);
+            color: var(--text-primary);
             font-weight: bold;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .schedule-btn:hover {
+            border-color: var(--accent-color);
+            opacity: 0.8;
+        }
+
+        .schedule-btn.primary {
             background: var(--accent-color);
             color: white;
-            cursor: pointer;
-            transition: all 0.3s;
+            border-color: var(--accent-color);
         }
 
         .schedule-btn:hover {
@@ -450,9 +425,6 @@
         <div class="card">
             <h2>System Controls</h2>
             
-            <!-- Schedule Status Alert -->
-            <div id="schedule-status" class="schedule-status" style="display:none;"></div>
-            
             <div class="control-panel">
                 <div class="control-section">
                     <h3>HVAC Mode</h3>
@@ -462,19 +434,17 @@
                         <button class="mode-btn" data-mode="cool" onclick="setMode('cool')">COOL</button>
                         <button class="mode-btn" data-mode="auto" onclick="setMode('auto')">AUTO</button>
                     </div>
-                </div>
-                <div class="control-section">
-                    <h3>Fan Control</h3>
-                    <div class="fan-control">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="fan-toggle" onchange="setFan(this.checked)">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="fan-label" id="fan-label">AUTO</span>
+                    <h3 style="margin-top: 20px;">Fan Control</h3>
+                    <div class="fan-buttons">
+                        <button class="fan-btn" data-fan="on" onclick="setFan(true)">ON</button>
+                        <button class="fan-btn active" data-fan="auto" onclick="setFan(false)">AUTO</button>
                     </div>
                 </div>
+                
                 <div class="control-section">
                     <h3>Schedule Control</h3>
+                    <!-- Schedule Status Alert -->
+                    <div id="schedule-status" class="schedule-status" style="display:none;"></div>
                     <div class="schedule-buttons">
                         <button class="schedule-btn" id="resume-btn" onclick="resumeSchedules()" style="display:none;">Resume Schedules</button>
                         <button class="schedule-btn" id="disable-btn" onclick="disableSchedules()">Disable Schedules</button>
@@ -656,23 +626,26 @@
                 xhr.send(JSON.stringify({fan_on: fanOn}));
                 
                 if (xhr.status === 200) {
-                    // Update UI only after successful server response
-                    document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                    // Update button styling
+                    updateFanButtons(fanOn);
                     showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
                     // Track what the user set to prevent polling from overwriting
                     lastFanChangeTime = Date.now();
                     lastFanChangeValue = fanOn;
                 } else {
-                    // Revert toggle on error
-                    document.getElementById('fan-toggle').checked = !fanOn;
                     const error = JSON.parse(xhr.responseText);
                     showError(`Failed to set fan: ${error.error || 'Server error'}`);
                 }
-            } catch (error) {
-                // Revert toggle on error
-                document.getElementById('fan-toggle').checked = !fanOn;
+            } ca                or) {
                 showError(`Failed to set fan: ${error.message}`);
             }
+        }
+
+        function updateFanButtons(fanOn) {
+            document.querySelectorAll('.fan-btn').forEach(btn => {
+                const isFanOn = btn.getAttribute('data-fan') === 'on';
+                btn.classList.toggle('active', isFanOn === fanOn);
+            });
         }
 
         function updateModeButtons() {
@@ -806,34 +779,29 @@
                         document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
                     }
 
-                    // Update fan toggle based on manual fan mode setting
-                    const fanToggle = document.getElementById('fan-toggle');
-                    const fanLabel = document.getElementById('fan-label');
+                    // Update fan buttons based on manual fan mode setting
                     // Use manual_fan_mode to determine if continuous (true) or auto (false)
                     const fanManual = data.manual_fan_mode || false;
                     
                     // If user recently changed the fan, wait until server confirms the same value
-                    // This prevents the toggle from flipping back during the server processing delay
+                    // This prevents the buttons from flipping back during the server processing delay
                     if (lastFanChangeValue !== null) {
                         if (fanManual === lastFanChangeValue) {
                             // Server has confirmed the user's change - clear the pending state
                             lastFanChangeValue = null;
                             // Update UI to match server (should already be correct, but be explicit)
-                            fanToggle.checked = fanManual;
-                            fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                            updateFanButtons(fanManual);
                         } else {
-                            // Server hasn't confirmed yet - keep the toggle at user's value, don't update
+                            // Server hasn't confirmed yet - keep buttons at user's value, don't update
                             // Add timeout safety: if server doesn't confirm within 60 seconds, give up and sync
                             if (Date.now() - lastFanChangeTime > 60000) {
                                 lastFanChangeValue = null;
-                                fanToggle.checked = fanManual;
-                                fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                                updateFanButtons(fanManual);
                             }
                         }
                     } else {
                         // No recent user change - update from server normally
-                        fanToggle.checked = fanManual;
-                        fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                        updateFanButtons(fanManual);
                     }
                     
                     // Update schedule status
