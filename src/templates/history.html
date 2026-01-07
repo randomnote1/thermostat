@@ -430,7 +430,7 @@
                 if (sensorParam) {
                     // If sensor parameter exists, switch to sensors tab and pre-select the sensor
                     switchTab('sensors');
-                    // Store the sensor ID to select after data loads
+                    // Store the sensor ID to select after data loads (or 'all' for all sensors)
                     window.pendingSensorSelection = sensorParam;
                 } else {
                 // Otherwise, check URL fragment for tab selection
@@ -621,13 +621,18 @@
 
                 // Check for pending sensor selection from URL parameter
                 if (window.pendingSensorSelection) {
-                    // Try to find sensor by ID first, then by name
-                    const sensorToSelect = uniqueSensors.find(name =>
-                        sensorHistoryData.find(r => r.sensor_name === name && r.sensor_id === window.pendingSensorSelection)
-                    );
+                    // Check if requesting all sensors
+                    if (window.pendingSensorSelection === 'all') {
+                        sensorFilter.value = 'all';
+                    } else {
+                        // Try to find sensor by ID first, then by name
+                        const sensorToSelect = uniqueSensors.find(name =>
+                            sensorHistoryData.find(r => r.sensor_name === name && r.sensor_id === window.pendingSensorSelection)
+                        );
 
-                    if (sensorToSelect) {
-                        sensorFilter.value = sensorToSelect;
+                        if (sensorToSelect) {
+                            sensorFilter.value = sensorToSelect;
+                        }
                     }
                     // Clear the pending selection
                     window.pendingSensorSelection = null;

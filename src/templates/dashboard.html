@@ -619,7 +619,8 @@
             if (sensorId) {
                 window.location.href = `/history?sensor=${encodeURIComponent(sensorId)}`;
             } else {
-                window.location.href = '/history';
+                // System temperature - show all sensors
+                window.location.href = '/history?sensor=all';
             }
         }
 
