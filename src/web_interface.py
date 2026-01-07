@@ -542,7 +542,7 @@ def api_update_sensor_config(sensor_id):
         
         # Notify controller to reload sensors
         if control_callback:
-            control_callback({'action': 'reload_sensors'})
+            control_callback('reload_sensors', {})
         
         return jsonify({'success': True, 'sensor_id': sensor_id})
     except Exception as e:
@@ -561,7 +561,7 @@ def api_delete_sensor_config(sensor_id):
         
         # Notify controller to reload sensors
         if control_callback:
-            control_callback({'action': 'reload_sensors'})
+            control_callback('reload_sensors', {})
         
         return jsonify({'success': True, 'sensor_id': sensor_id})
     except Exception as e:

@@ -1042,10 +1042,11 @@ class TestSensorConfigEndpoints(unittest.TestCase):
         
         self.assertEqual(response.status_code, 200)
         
-        # Verify callback was called with reload action
+        # Verify callback was called with correct command and params
         self.control_callback.assert_called_once()
-        call_args = self.control_callback.call_args[0][0]
-        self.assertEqual(call_args['action'], 'reload_sensors')
+        call_args = self.control_callback.call_args[0]
+        self.assertEqual(call_args[0], 'reload_sensors')  # command
+        self.assertEqual(call_args[1], {})  # params
     
     def test_delete_sensor_config_without_database(self):
         """Test DELETE /api/sensors/config/<id> without database"""
