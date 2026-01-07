@@ -592,6 +592,9 @@
         }
 
         async function setFan(fanOn) {
+            const fanToggle = document.getElementById('fan-toggle');
+            const fanLabel = document.getElementById('fan-label');
+            
             try {
                 const response = await fetch('/api/control/fan', {
                     method: 'POST',
@@ -604,10 +607,15 @@
                     throw new Error(error.error || 'Failed to set fan');
                 }
 
-                document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                // Explicitly set the checkbox state to confirm
+                fanToggle.checked = fanOn;
+                fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
                 updateDashboard();
             } catch (error) {
+                // Revert the toggle to previous state on error
+                fanToggle.checked = !fanOn;
+                fanLabel.textContent = !fanOn ? 'CONTINUOUS' : 'AUTO';
                 showError(`Failed to set fan: ${error.message}`);
             }
         }
