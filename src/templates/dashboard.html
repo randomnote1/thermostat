@@ -595,6 +595,7 @@
         }
 
         let lastFanChangeTime = 0;
+        let lastFanChangeValue = null;  // Track what value user set
 
         function setFan(fanOn) {
             const xhr = new XMLHttpRequest();
@@ -608,8 +609,9 @@
                     // Update UI only after successful server response
                     document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
                     showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
-                    // Mark the time to prevent polling from overwriting
+                    // Track what the user set to prevent polling from overwriting
                     lastFanChangeTime = Date.now();
+                    lastFanChangeValue = fanOn;
                 } else {
                     // Revert toggle on error
                     document.getElementById('fan-toggle').checked = !fanOn;
@@ -697,14 +699,29 @@
                     const fanLabel = document.getElementById('fan-label');
                     // Use manual_fan_mode to determine if continuous (true) or auto (false)
                     const fanManual = data.manual_fan_mode || false;
-                    // Only update if the server value differs from current toggle state
-                    // This prevents overwriting user's recent changes that haven't completed yet
-                    if (fanToggle.checked !== fanManual) {
-                        // Wait a bit after user action before accepting server updates
-                        if (Date.now() - lastFanChangeTime > 2000) {  // 2 second grace period
+                    
+                    // If user recently changed the fan, wait until server confirms the same value
+                    // This prevents the toggle from flipping back during the server processing delay
+                    if (lastFanChangeValue !== null) {
+                        if (fanManual === lastFanChangeValue) {
+                            // Server has confirmed the user's change - clear the pending state
+                            lastFanChangeValue = null;
+                            // Update UI to match server (should already be correct, but be explicit)
                             fanToggle.checked = fanManual;
                             fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                        } else {
+                            // Server hasn't confirmed yet - keep the toggle at user's value, don't update
+                            // Add timeout safety: if server doesn't confirm within 60 seconds, give up and sync
+                            if (Date.now() - lastFanChangeTime > 60000) {
+                                lastFanChangeValue = null;
+                                fanToggle.checked = fanManual;
+                                fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                            }
                         }
+                    } else {
+                        // No recent user change - update from server normally
+                        fanToggle.checked = fanManual;
+                        fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
                     }
                     
                     // Update schedule status
