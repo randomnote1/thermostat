@@ -434,6 +434,7 @@
                         <button class="mode-btn" data-mode="cool" onclick="setMode('cool')">COOL</button>
                         <button class="mode-btn" data-mode="auto" onclick="setMode('auto')">AUTO</button>
                     </div>
+                    
                     <h3 style="margin-top: 20px;">Fan Control</h3>
                     <div class="fan-buttons">
                         <button class="fan-btn" data-fan="on" onclick="setFan(true)">ON</button>
@@ -636,7 +637,7 @@
                     const error = JSON.parse(xhr.responseText);
                     showError(`Failed to set fan: ${error.error || 'Server error'}`);
                 }
-            } ca                or) {
+            } catch (error) {
                 showError(`Failed to set fan: ${error.message}`);
             }
         }
