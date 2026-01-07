@@ -536,7 +536,8 @@
         }
 
         // Debounce timers for temperature adjustments
-        let tempDebounceTimer = nul               let pendingTempChange = null;
+        let tempDebounceTimer = null;
+        let pendingTempChange = null;
 
         async function saveTargetTemp(type, temperature) {
             // Actually save the temperature to the server
@@ -544,7 +545,7 @@
                 const response = await fetch('/api/control/temperature', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                                                          JSON.stringify({type:                             ature: temperature})
+                    body: JSON.stringify({type: type, temperature: temperature})
                 });
 
                 if (!response.ok) {
@@ -552,24 +553,31 @@
                     throw new Error(error.error || 'Failed to set temperature');
                 }
 
-                // Trac                        ser set to prevent polling from o                                       lastTempChangeTime =
-                            if (type === 'heat') {
-                    lastTempChang                        erature;
+                // Track what the user set to prevent polling from overwriting
+                lastTempChangeTime = Date.now();
+                if (type === 'heat') {
+                    lastTempChangeHeat = temperature;
                 } else {
-              m                        = temperature;
-                                               showSuccess(`Target                            ture set to ${temper                        d(1)}${tem                    Sym                                    // Don't call updateDashboard()                    he 5-second interval sync to p                    ace conditions
-            } ca                    or) {
-                showError(`Failed to set temp                        rror.message}`);
+                    lastTempChangeCool = temperature;
+                }
+
+                showSuccess(`Target ${type} temperature set to ${temperature.toFixed(1)}${temperatureSymbol}`);
+                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
+            } catch (error) {
+                showError(`Failed to set temperature: ${error.message}`);
             }
         }
 
-                             ction                              delta) {
-            const currentTemp = type === 'heat' ?                                 currentTargetCo                                t newTemp  = currentTemp + delta;
+        async function adjustTemp(type, delta) {
+            const currentTemp = type === 'heat' ? currentTargetHeat : currentTargetCool;
+            const newTemp = currentTemp + delta;
 
-             i                                 || newTemp > tempMax)  {
-                showError(`Temper atu                            en ${                            atureSymbol} and ${t                                Symbol}`);
+            if (newTemp < tempMin || newTemp > tempMax) {
+                showError(`Temperature must be between ${tempMin}${temperatureSymbol} and ${tempMax}${temperatureSymbol}`);
                 return;
-                                       // Update UI immediately
+            }
+
+            // Update UI immediately
             if (type === 'heat') {
                 currentTargetHeat = newTemp;
                 document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
@@ -583,9 +591,10 @@
                 clearTimeout(tempDebounceTimer);
             }
 
-            // Set a new timer to save after 1.5 s        activity
-                     imer = setTimeout(() => {
-                saveTargetTemp(t        );           mpDebounceTimer = null;
+            // Set a new timer to save after 1.5 seconds of inactivity
+            tempDebounceTimer = setTimeout(() => {
+                saveTargetTemp(type, newTemp);
+                tempDebounceTimer = null;
             }, 1500);
         }
 
