@@ -351,18 +351,11 @@
         }
 
         .status-overlay {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.3);
-            color: rgba(255, 255, 255, 0.8);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            backdrop-filter: blur(5px);
-            z-index: 100;
-            pointer-events: none;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            font-size: 0.85em;
+            margin-top: 10px;
         }
 
         @media (max-width: 768px) {
@@ -376,11 +369,6 @@
 
             .control-panel {
                 grid-template-columns: 1fr;
-            }
-            
-            .status-overlay {
-                font-size: 0.7em;
-                padding: 4px 12px;
             }
         }
     </style>
@@ -488,9 +476,9 @@
                 <li class="loading">Loading sensor data...</li>
             </ul>
         </div>
-    </div>
 
-    <div class="status-overlay">Last updated: <span id="last-update">--</span></div>
+        <div class="status-overlay">Last updated: <span id="last-update">--</span></div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
