@@ -441,16 +441,21 @@ class TestThermostatController(unittest.TestCase):
         command = 'set_mode'
         params = {'mode': 'cool'}
         
-        result = self.controller.handle_control_command(command, params)
-        
-        self.assertTrue(result['success'])
-        self.assertEqual(self.controller.hvac_mode, 'cool')
+        # Mock _log_hvac_history to verify it's called
+        with patch.object(self.controller, '_log_hvac_history') as mock_log:
+            result = self.controller.handle_control_command(command, params)
+            
+            self.assertTrue(result['success'])
+            self.assertEqual(self.controller.hvac_mode, 'cool')
+            # Verify HVAC history was logged immediately
+            mock_log.assert_called_once()
     
     def test_handle_control_command_set_mode_off(self):
         """Test setting mode to off turns off HVAC"""
         # Set HVAC running
         self.controller.hvac_state['heat'] = True
         self.controller.hvac_state['fan'] = True
+        self.controller.manual_fan_mode = False  # Auto mode
         
         command = 'set_mode'
         params = {'mode': 'off'}
@@ -461,6 +466,24 @@ class TestThermostatController(unittest.TestCase):
         self.assertEqual(self.controller.hvac_mode, 'off')
         self.assertFalse(self.controller.hvac_state['heat'])
         self.assertFalse(self.controller.hvac_state['fan'])
+    
+    def test_handle_control_command_set_mode_off_with_manual_fan(self):
+        """Test setting mode to off preserves manual fan mode"""
+        # Set HVAC running with manual fan
+        self.controller.hvac_state['heat'] = True
+        self.controller.hvac_state['fan'] = True
+        self.controller.manual_fan_mode = True  # Manual continuous mode
+        
+        command = 'set_mode'
+        params = {'mode': 'off'}
+        
+        result = self.controller.handle_control_command(command, params)
+        
+        self.assertTrue(result['success'])
+        self.assertEqual(self.controller.hvac_mode, 'off')
+        self.assertFalse(self.controller.hvac_state['heat'])
+        # Fan should stay on in manual mode
+        self.assertTrue(self.controller.hvac_state['fan'])
     
     def test_handle_control_command_invalid_mode(self):
         """Test invalid mode is rejected"""
@@ -473,7 +496,7 @@ class TestThermostatController(unittest.TestCase):
         self.assertIn('Invalid mode', result['error'])
     
     def test_handle_control_command_set_fan(self):
-        """Test manual fan control"""
+        """Test manual fan control - continuous mode"""
         command = 'set_fan'
         params = {'fan_on': True}
         
@@ -481,7 +504,45 @@ class TestThermostatController(unittest.TestCase):
         
         self.assertTrue(result['success'])
         self.assertTrue(self.controller.hvac_state['fan'])
-        self.assertTrue(self.controller.manual_fan_mode)  # Manual mode should be enabled
+        self.assertTrue(self.controller.manual_fan_mode)  # Manual mode enabled
+    
+    def test_handle_control_command_set_fan_auto(self):
+        """Test fan control - return to auto mode"""
+        # First enable manual mode
+        self.controller.manual_fan_mode = True
+        self.controller.hvac_state['fan'] = True
+        
+        command = 'set_fan'
+        params = {'fan_on': False}
+        
+        result = self.controller.handle_control_command(command, params)
+        
+        self.assertTrue(result['success'])
+        self.assertFalse(self.controller.hvac_state['fan'])
+        self.assertFalse(self.controller.manual_fan_mode)  # Manual mode disabled
+    
+    def test_handle_control_command_set_fan_logs_to_settings_history(self):
+        """Test fan control logs to settings history"""
+        # Verify database logging
+        if self.controller.db:
+            command = 'set_fan'
+            params = {'fan_on': True}
+            
+            # Get initial history count
+            history_before = len(self.controller.db.get_setting_history(limit=100))
+            
+            result = self.controller.handle_control_command(command, params)
+            
+            self.assertTrue(result['success'])
+            
+            # Verify settings history was logged
+            history_after = self.controller.db.get_setting_history(limit=100)
+            self.assertGreater(len(history_after), history_before)
+            
+            # Verify the logged entry
+            latest_entry = history_after[0]
+            self.assertEqual(latest_entry['setting_name'], 'fan_mode')
+            self.assertEqual(latest_entry['new_value'], 'on')
     
     def test_handle_control_command_resume_schedules(self):
         """Test resume schedules command"""
@@ -799,9 +860,10 @@ class TestLogHistory(unittest.TestCase):
         # Log with system temp
         self.controller._log_hvac_history(19.5)
         
-        # Verify target temp is heat setting
+        # Verify target temp heat is logged
         history = self.controller.db.get_hvac_history(hours=1)
-        self.assertEqual(history[0]['target_temp'], 20.0)
+        self.assertEqual(history[0]['target_temp_heat'], 20.0)
+        self.assertEqual(history[0]['hvac_mode'], 'heat')
     
     def test_log_hvac_history_cool_mode(self):
         """Test logging HVAC history with cool mode"""
@@ -812,9 +874,10 @@ class TestLogHistory(unittest.TestCase):
         # Log with system temp
         self.controller._log_hvac_history(25.0)
         
-        # Verify target temp is cool setting
+        # Verify target temp cool is logged
         history = self.controller.db.get_hvac_history(hours=1)
-        self.assertEqual(history[0]['target_temp'], 24.0)
+        self.assertEqual(history[0]['target_temp_cool'], 24.0)
+        self.assertEqual(history[0]['hvac_mode'], 'cool')
 
 
 class TestControlCommandsExtended(unittest.TestCase):

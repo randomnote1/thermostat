@@ -681,12 +681,13 @@
                     document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
                     document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
 
-                    // Update fan toggle based on manual mode
+                    // Update fan toggle based on manual fan mode setting
                     const fanToggle = document.getElementById('fan-toggle');
                     const fanLabel = document.getElementById('fan-label');
-                    const fanOn = hvacState.fan || false;
-                    fanToggle.checked = fanOn;
-                    fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                    // Use manual_fan_mode to determine if continuous (true) or auto (false)
+                    const fanManual = data.manual_fan_mode || false;
+                    fanToggle.checked = fanManual;
+                    fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
                     
                     // Update schedule status
                     updateScheduleStatus(data);

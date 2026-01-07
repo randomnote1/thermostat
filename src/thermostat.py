@@ -125,8 +125,11 @@ class ThermostatController:
                 self.target_temp_heat = saved_settings['target_temp_heat']
                 self.target_temp_cool = saved_settings['target_temp_cool']
                 self.hvac_mode = saved_settings['hvac_mode']
+                # Load fan mode setting
+                fan_mode = saved_settings.get('fan_mode', 'auto')
+                self.manual_fan_mode = (fan_mode == 'on')
                 logger.info(f"Loaded persisted settings: heat={self.target_temp_heat}°C, "
-                          f"cool={self.target_temp_cool}°C, mode={self.hvac_mode}")
+                          f"cool={self.target_temp_cool}°C, mode={self.hvac_mode}, fan_mode={fan_mode}")
         
         # GPIO configuration
         self.gpio_relay_heat = int(os.getenv('GPIO_RELAY_HEAT', 17))
@@ -383,9 +386,10 @@ class ThermostatController:
             logger.error("Safety violation: Attempted to activate heat and cool simultaneously!")
             return
         
-        # If manual fan mode is active, preserve the manual fan state
+        # If manual fan mode is active (continuous), force fan to stay on
+        # If manual_fan_mode is False (auto), use the requested fan state from control logic
         if self.manual_fan_mode:
-            fan = self.hvac_state['fan']
+            fan = True  # Force fan ON in manual continuous mode
         
         # Check if state is changing
         new_state = {'heat': heat, 'cool': cool, 'fan': fan, 'heat2': heat2}
@@ -453,6 +457,11 @@ class ThermostatController:
             status['schedule_hold_until'] = self.schedule_hold_until.isoformat()
         
         return status
+    
+    @property
+    def fan_mode(self) -> str:
+        """Get current fan mode as string ('on' for continuous, 'auto' for automatic)"""
+        return 'on' if self.manual_fan_mode else 'auto'
     
     def _update_web_interface(self) -> None:
         """Update web interface with current state"""
@@ -586,7 +595,8 @@ class ThermostatController:
                                           self.hvac_mode, f"schedule:{schedule['name']}")
             
             # Persist changes
-            self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+            self.db.save_settings(self.target_temp_heat, self.target_temp_cool, 
+                                self.hvac_mode, self.fan_mode)
             
             logger.info(f"Schedule applied: heat={self.target_temp_heat}°F, "
                        f"cool={self.target_temp_cool}°F, mode={self.hvac_mode}")
@@ -649,7 +659,8 @@ class ThermostatController:
                     
                     # Persist to database and log change
                     if self.db:
-                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, 
+                                            self.hvac_mode, self.fan_mode)
                         self.db.log_setting_change('target_temp_heat', str(old_temp), str(temperature), 'web_interface')
                     
                     # Set schedule hold
@@ -662,7 +673,8 @@ class ThermostatController:
                     
                     # Persist to database and log change
                     if self.db:
-                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                        self.db.save_settings(self.target_temp_heat, self.target_temp_cool, 
+                                            self.hvac_mode, self.fan_mode)
                         self.db.log_setting_change('target_temp_cool', str(old_temp), str(temperature), 'web_interface')
                     
                     # Set schedule hold
@@ -687,33 +699,53 @@ class ThermostatController:
                 
                 # Persist to database and log change
                 if self.db:
-                    self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode)
+                    self.db.save_settings(self.target_temp_heat, self.target_temp_cool, 
+                                        self.hvac_mode, self.fan_mode)
                     self.db.log_setting_change('hvac_mode', old_mode, mode, 'web_interface')
+                    
+                    # Immediately log to HVAC history so it appears right away
+                    system_temp = self.calculate_system_temperature(self.latest_readings)
+                    self._log_hvac_history(system_temp)
                 
                 # Set schedule hold
                 self._set_schedule_hold()
                 
-                # If mode is 'off', turn off all HVAC
+                # If mode is 'off', turn off all HVAC (respecting manual fan mode)
                 if mode == 'off':
-                    self._set_hvac_state(heat=False, cool=False, fan=False)
+                    fan_state = self.hvac_state['fan'] if self.manual_fan_mode else False
+                    self._set_hvac_state(heat=False, cool=False, fan=fan_state)
                 
                 return {'success': True, 'message': f'HVAC mode set to {mode}'}
             
             elif command == 'set_fan':
                 fan_on = params.get('fan_on', False)
                 
-                # Enable manual fan mode and set the fan state
-                self.manual_fan_mode = True
+                # Toggle manual fan mode based on state
+                # If fan_on=True, enable manual continuous mode
+                # If fan_on=False, disable manual mode (return to auto)
+                old_manual_mode = self.manual_fan_mode
+                old_fan_state = self.hvac_state['fan']
+                
+                self.manual_fan_mode = fan_on  # True = continuous, False = auto
                 
                 # Manual fan control
                 if GPIO:
                     GPIO.output(self.gpio_relay_fan, GPIO.HIGH if fan_on else GPIO.LOW)
                 
                 self.hvac_state['fan'] = fan_on
-                logger.info(f"Fan manually set to {'ON' if fan_on else 'OFF'} (manual mode enabled)")
+                logger.info(f"Fan set to {'CONTINUOUS' if fan_on else 'AUTO'} (manual_fan_mode={self.manual_fan_mode})")
                 
-                # Log the change to database
+                # Persist fan mode setting and log to both histories
                 if self.db:
+                    # Save fan mode to database
+                    fan_mode = 'on' if fan_on else 'auto'
+                    self.db.save_settings(self.target_temp_heat, self.target_temp_cool, self.hvac_mode, fan_mode)
+                    
+                    # Log to settings history
+                    old_fan_mode = 'on' if old_manual_mode and old_fan_state else 'auto'
+                    self.db.log_setting_change('fan_mode', old_fan_mode, fan_mode, 'web_interface')
+                    
+                    # Log to HVAC history
                     system_temp = self.calculate_system_temperature(self.latest_readings)
                     self._log_hvac_history(system_temp)
                 

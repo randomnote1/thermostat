@@ -131,14 +131,15 @@ class TestModeControl:
         assert mock_controller.hvac_mode == 'auto'
     
     def test_set_mode_off(self, mock_controller):
-        """Test setting mode to off"""
-        # First set some HVAC state
+        """Test setting mode to off (auto fan mode)"""
+        # First set some HVAC state with auto fan
         mock_controller.hvac_state = {
             'heat': True,
             'cool': False,
             'fan': True,
             'heat2': False
         }
+        mock_controller.manual_fan_mode = False  # Auto mode
         
         result = mock_controller.handle_control_command('set_mode', {
             'mode': 'off'
@@ -150,6 +151,28 @@ class TestModeControl:
         assert mock_controller.hvac_state['heat'] is False
         assert mock_controller.hvac_state['cool'] is False
         assert mock_controller.hvac_state['fan'] is False
+    
+    def test_set_mode_off_preserves_manual_fan(self, mock_controller):
+        """Test setting mode to off preserves manual fan mode"""
+        # Set HVAC running with manual fan enabled
+        mock_controller.hvac_state = {
+            'heat': True,
+            'cool': False,
+            'fan': True,
+            'heat2': False
+        }
+        mock_controller.manual_fan_mode = True  # Manual continuous mode
+        
+        result = mock_controller.handle_control_command('set_mode', {
+            'mode': 'off'
+        })
+        
+        assert result['success'] is True
+        assert mock_controller.hvac_mode == 'off'
+        # Verify heat/cool turned off but fan stays on in manual mode
+        assert mock_controller.hvac_state['heat'] is False
+        assert mock_controller.hvac_state['cool'] is False
+        assert mock_controller.hvac_state['fan'] is True  # Preserved in manual mode
     
     def test_set_mode_invalid(self, mock_controller):
         """Test invalid mode is rejected"""
@@ -168,7 +191,7 @@ class TestFanControl:
     """Test manual fan control"""
     
     def test_set_fan_on(self, mock_controller):
-        """Test turning fan on"""
+        """Test turning fan on (continuous mode)"""
         result = mock_controller.handle_control_command('set_fan', {
             'fan_on': True
         })
@@ -179,8 +202,10 @@ class TestFanControl:
         assert 'CONTINUOUS' in result['message']
     
     def test_set_fan_off(self, mock_controller):
-        """Test turning fan off"""
+        """Test turning fan off (return to auto mode)"""
+        # First enable manual mode
         mock_controller.hvac_state['fan'] = True
+        mock_controller.manual_fan_mode = True
         
         result = mock_controller.handle_control_command('set_fan', {
             'fan_on': False
@@ -188,7 +213,8 @@ class TestFanControl:
         
         assert result['success'] is True
         assert mock_controller.hvac_state['fan'] is False
-        assert mock_controller.manual_fan_mode is True
+        # Manual mode should be disabled when setting fan_on=False (auto mode)
+        assert mock_controller.manual_fan_mode is False
         assert 'AUTO' in result['message']
 
 
