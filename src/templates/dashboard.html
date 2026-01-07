@@ -378,16 +378,31 @@
                 font-size: 1.2em;
             }
 
-            .sensor-list {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            }
-
             .grid {
                 grid-template-columns: 1fr;
             }
 
             .control-panel {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sensor-list {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 10px;
+            }
+
+            .sensor-item {
+                padding: 12px;
+            }
+
+            .sensor-item .name {
+                font-size: 0.9em;
+            }
+
+            .sensor-item .value {
+                font-size: 1.4em;
             }
         }
 
