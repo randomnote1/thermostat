@@ -697,10 +697,14 @@
                     const fanLabel = document.getElementById('fan-label');
                     // Use manual_fan_mode to determine if continuous (true) or auto (false)
                     const fanManual = data.manual_fan_mode || false;
-                    // Only update if fan wasn't recently changed by user (prevent overwriting during server sync)
-                    if (Date.now() - lastFanChangeTime > 10000) {  // 10 second debounce
-                        fanToggle.checked = fanManual;
-                        fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                    // Only update if the server value differs from current toggle state
+                    // This prevents overwriting user's recent changes that haven't completed yet
+                    if (fanToggle.checked !== fanManual) {
+                        // Wait a bit after user action before accepting server updates
+                        if (Date.now() - lastFanChangeTime > 2000) {  // 2 second grace period
+                            fanToggle.checked = fanManual;
+                            fanLabel.textContent = fanManual ? 'CONTINUOUS' : 'AUTO';
+                        }
                     }
                     
                     // Update schedule status
