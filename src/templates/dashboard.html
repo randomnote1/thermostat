@@ -612,6 +612,10 @@
         let lastTempChangeTime = 0;
         let lastTempChangeHeat = null;  // Track what heat temp user set
         let lastTempChangeCool = null;  // Track what cool temp user set
+        
+        let lastScheduleChangeTime = 0;
+        let lastScheduleEnabledValue = null;  // Track what schedule enabled state user set
+        let lastScheduleOnHoldValue = null;  // Track what schedule hold state user set
 
         function setFan(fanOn) {
             const xhr = new XMLHttpRequest();
@@ -849,15 +853,47 @@
             const disableBtn = document.getElementById('disable-btn');
             const enableBtn = document.getElementById('enable-btn');
             
+            const serverScheduleEnabled = data.schedule_enabled;
+            const serverScheduleOnHold = data.schedule_on_hold;
+            
+            // If user recently changed schedule state, wait for server confirmation
+            let useServerValues = true;
+            if (lastScheduleEnabledValue !== null || lastScheduleOnHoldValue !== null) {
+                // Check if server confirmed the change
+                const enabledConfirmed = lastScheduleEnabledValue === null || serverScheduleEnabled === lastScheduleEnabledValue;
+                const holdConfirmed = lastScheduleOnHoldValue === null || serverScheduleOnHold === lastScheduleOnHoldValue;
+                
+                if (enabledConfirmed && holdConfirmed) {
+                    // Server confirmed - clear pending state
+                    lastScheduleEnabledValue = null;
+                    lastScheduleOnHoldValue = null;
+                } else {
+                    // Not confirmed yet - timeout safety
+                    if (Date.now() - lastScheduleChangeTime > 60000) {
+                        lastScheduleEnabledValue = null;
+                        lastScheduleOnHoldValue = null;
+                    } else {
+                        // Don't update UI yet, use pending values
+                        useServerValues = false;
+                    }
+                }
+            }
+            
+            // Determine which state to display
+            const displayEnabled = useServerValues ? serverScheduleEnabled : 
+                                   (lastScheduleEnabledValue !== null ? lastScheduleEnabledValue : serverScheduleEnabled);
+            const displayOnHold = useServerValues ? serverScheduleOnHold : 
+                                  (lastScheduleOnHoldValue !== null ? lastScheduleOnHoldValue : serverScheduleOnHold);
+            
             // Update schedule control buttons
-            if (!data.schedule_enabled) {
+            if (!displayEnabled) {
                 statusEl.className = 'schedule-status disabled';
                 statusEl.textContent = '🔕 Schedules are disabled';
                 statusEl.style.display = 'block';
                 resumeBtn.style.display = 'none';
                 disableBtn.style.display = 'none';
                 enableBtn.style.display = 'inline-block';
-            } else if (data.schedule_on_hold) {
+            } else if (displayOnHold) {
                 const holdUntil = new Date(data.schedule_hold_until);
                 const timeLeft = Math.round((holdUntil - new Date()) / 60000); // minutes
                 statusEl.className = 'schedule-status on-hold';
@@ -887,7 +923,10 @@
                 if (!response.ok) throw new Error('Failed to resume schedules');
                 
                 showSuccess('Schedules resumed');
-                updateDashboard();
+                // Track what the user set to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleOnHoldValue = false;  // Resume clears hold
+                // Don't call updateDashboard() - let polling handle it
             } catch (error) {
                 showError('Failed to resume schedules: ' + error.message);
             }
@@ -904,7 +943,10 @@
                 if (!response.ok) throw new Error('Failed to enable schedules');
                 
                 showSuccess('Schedules enabled');
-                updateDashboard();
+                // Track what the user set to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleEnabledValue = true;
+                // Don't call updateDashboard() - let polling handle it
             } catch (error) {
                 showError('Failed to enable schedules: ' + error.message);
             }
@@ -925,7 +967,10 @@
                 if (!response.ok) throw new Error('Failed to disable schedules');
                 
                 showSuccess('Schedules disabled');
-                updateDashboard();
+                // Track what the user set to prevent polling from overwriting
+                lastScheduleChangeTime = Date.now();
+                lastScheduleEnabledValue = false;
+                // Don't call updateDashboard() - let polling handle it
             } catch (error) {
                 showError('Failed to disable schedules: ' + error.message);
             }
