@@ -358,45 +358,77 @@
             margin-top: 10px;
         }
 
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
         @media (max-width: 768px) {
-            .nav-links {
+            .hamburger {
+                display: flex;
+            }
+
+            .nav {
                 flex-wrap: wrap;
-                justify-content: center;
             }
-            
+
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                order: 3;
+                margin-top: 10px;
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
             .nav a {
-                font-size: 0.9em;
-                padding: 8px 12px;
+                width: 100%;
+                text-align: center;
             }
-            
+
             .theme-toggle {
                 width: 35px;
                 height: 35px;
                 font-size: 1em;
             }
-            
+
             .temp-value {
-                font-size: 3em;
-            }
-            
-            .target-temps {
-                flex-direction: column;
-                gap: 20px;
-            }
-            
-            .target-temp .value {
                 font-size: 2.5em;
             }
-            
-            .hvac-status {
-                justify-content: center;
-            }
-            
+
             .hvac-badge {
-                font-size: 0.8em;
-                padding: 6px 10px;
+                font-size: 0.75em;
+                padding: 6px 8px;
             }
-            
+
+            .target-temp .value {
+                font-size: 1.8em;
+            }
+
+            .control-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 1.2em;
+            }
+
+            .sensor-list {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+
             .grid {
                 grid-template-columns: 1fr;
             }
@@ -410,7 +442,12 @@
 <body>
     <div class="container">
         <div class="nav">
-            <div class="nav-links">
+            <div class="hamburger" onclick="toggleNav()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="nav-links" id="nav-links">
                 <a href="/" class="active">Dashboard</a>
                 <a href="/schedules">Schedules</a>
                 <a href="/history">History</a>
@@ -518,6 +555,10 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
+        function toggleNav() {
+                          navLinks.classList.toggle('active');
+        }
+
         let errorCount = 0;
         let currentMode = 'off';
         let currentTargetHeat = 68;
