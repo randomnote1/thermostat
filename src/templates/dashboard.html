@@ -594,26 +594,27 @@
             }
         }
 
-            async function setFan(fanOn) {
+        function setFan(fanOn) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/control/fan', false);  // Synchronous request
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            
             try {
-                const response = await fetch('/api/control/fan', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({fan_on: fanOn})
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
+                xhr.send(JSON.stringify({fan_on: fanOn}));
+                
+                if (xhr.status === 200) {
+                    // Update UI only after successful server response
+                    document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                    showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
+                } else {
                     // Revert toggle on error
                     document.getElementById('fan-toggle').checked = !fanOn;
-                    throw new Error(error.error || 'Failed to set fan');
+                    const error = JSON.parse(xhr.responseText);
+                    showError(`Failed to set fan: ${error.error || 'Server error'}`);
                 }
-
-                // Update UI immediately
-                document.getElementById('fan-label').textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
-                showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
-                // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
             } catch (error) {
+                // Revert toggle on error
+                document.getElementById('fan-toggle').checked = !fanOn;
                 showError(`Failed to set fan: ${error.message}`);
             }
         }
