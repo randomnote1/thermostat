@@ -507,8 +507,9 @@
             successEl.textContent = message;
             successEl.style.display = 'block';
             
-            const container = document.querySelector('.control-panel');
-            container.parentElement.appendChild(successEl);
+            const container = document.querySelector('.container');
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.parentElement.insertBefore(successEl, errorMessage.nextSibling);
             
             setTimeout(() => {
                 successEl.style.display = 'none';
