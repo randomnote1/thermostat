@@ -428,16 +428,16 @@
                         <div class="label">🔥 Heating</div>
                         <div class="value" id="target-heat">--</div>
                         <div class="temp-control">
-                            <button class="control-btn" onclick="adjustTemp('heat', -1)">−</button>
-                            <button class="control-btn" onclick="adjustTemp('heat', 1)">+</button>
+                            <button class="control-btn" onclick="adjustTemp('heat', -0.5)">−</button>
+                            <button class="control-btn" onclick="adjustTemp('heat', 0.5)">+</button>
                         </div>
                     </div>
                     <div class="target-temp">
                         <div class="label">❄️ Cooling</div>
                         <div class="value" id="target-cool">--</div>
                         <div class="temp-control">
-                            <button class="control-btn" onclick="adjustTemp('cool', -1)">−</button>
-                            <button class="control-btn" onclick="adjustTemp('cool', 1)">+</button>
+                            <button class="control-btn" onclick="adjustTemp('cool', -0.5)">−</button>
+                            <button class="control-btn" onclick="adjustTemp('cool', 0.5)">+</button>
                         </div>
                     </div>
                 </div>
@@ -559,9 +559,15 @@
                 if (type === 'heat') {
                     currentTargetHeat = newTemp;
                     document.getElementById('target-heat').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+                    // Track what the user set to prevent polling from overwriting
+                    lastTempChangeTime = Date.now();
+                    lastTempChangeHeat = newTemp;
                 } else {
                     currentTargetCool = newTemp;
                     document.getElementById('target-cool').textContent = `${newTemp.toFixed(1)}${temperatureSymbol}`;
+                    // Track what the user set to prevent polling from overwriting
+                    lastTempChangeTime = Date.now();
+                    lastTempChangeCool = newTemp;
                 }
 
                 showSuccess(`Target ${type} temperature set to ${newTemp.toFixed(1)}${temperatureSymbol}`);
@@ -602,6 +608,10 @@
         
         let lastModeChangeTime = 0;
         let lastModeChangeValue = null;  // Track what mode user set
+        
+        let lastTempChangeTime = 0;
+        let lastTempChangeHeat = null;  // Track what heat temp user set
+        let lastTempChangeCool = null;  // Track what cool temp user set
 
         function setFan(fanOn) {
             const xhr = new XMLHttpRequest();
@@ -717,10 +727,50 @@
                     `;
 
                     // Update target temperatures
-                    currentTargetHeat = data.target_temp_heat || 68;
-                    currentTargetCool = data.target_temp_cool || 74;
-                    document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
-                    document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
+                    const serverTargetHeat = data.target_temp_heat || 68;
+                    const serverTargetCool = data.target_temp_cool || 74;
+                    
+                    // Handle heat temperature with confirmation waiting
+                    if (lastTempChangeHeat !== null) {
+                        if (Math.abs(serverTargetHeat - lastTempChangeHeat) < 0.01) {
+                            // Server confirmed - clear pending state
+                            lastTempChangeHeat = null;
+                            currentTargetHeat = serverTargetHeat;
+                            document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
+                        } else {
+                            // Not confirmed yet - timeout safety
+                            if (Date.now() - lastTempChangeTime > 60000) {
+                                lastTempChangeHeat = null;
+                                currentTargetHeat = serverTargetHeat;
+                                document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
+                            }
+                        }
+                    } else {
+                        // No recent change - update normally
+                        currentTargetHeat = serverTargetHeat;
+                        document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
+                    }
+                    
+                    // Handle cool temperature with confirmation waiting
+                    if (lastTempChangeCool !== null) {
+                        if (Math.abs(serverTargetCool - lastTempChangeCool) < 0.01) {
+                            // Server confirmed - clear pending state
+                            lastTempChangeCool = null;
+                            currentTargetCool = serverTargetCool;
+                            document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
+                        } else {
+                            // Not confirmed yet - timeout safety
+                            if (Date.now() - lastTempChangeTime > 60000) {
+                                lastTempChangeCool = null;
+                                currentTargetCool = serverTargetCool;
+                                document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
+                            }
+                        }
+                    } else {
+                        // No recent change - update normally
+                        currentTargetCool = serverTargetCool;
+                        document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
+                    }
 
                     // Update fan toggle based on manual fan mode setting
                     const fanToggle = document.getElementById('fan-toggle');
