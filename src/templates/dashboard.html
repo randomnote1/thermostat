@@ -52,6 +52,12 @@
             color: var(--accent-color);
             position: relative;
             z-index: 2;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .temp-value:hover {
+            opacity: 0.7;
         }
 
         .temp-label {
@@ -125,6 +131,12 @@
             color: var(--accent-color);
             position: relative;
             z-index: 2;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .sensor-temp:hover {
+            opacity: 0.7;
         }
 
         .sparkline {
@@ -508,7 +520,7 @@
             <div class="card">
                 <h2>System Temperature</h2>
                 <div class="temp-display">
-                    <div class="temp-value" id="system-temp">--</div>
+                    <div class="temp-value" id="system-temp" onclick="viewHistory()" title="Click to view temperature history">--</div>
                     <div class="temp-label">Current Temperature</div>
                 </div>
             </div>
@@ -601,6 +613,14 @@
         function toggleNav() {
             const navLinks = document.getElementById('nav-links');
             navLinks.classList.toggle('active');
+        }
+
+        function viewHistory(sensorId = null) {
+            if (sensorId) {
+                window.location.href = `/history?sensor=${encodeURIComponent(sensorId)}`;
+            } else {
+                window.location.href = '/history';
+            }
         }
 
         let errorCount = 0;
@@ -1120,7 +1140,7 @@
                             ${reading.name}
                             ${isCompromised ? '<span class="warning-icon">⚠️</span>' : ''}
                         </span>
-                        <span class="sensor-temp">${reading.temperature.toFixed(1)}${temperatureSymbol}</span>
+                        <span class="sensor-temp" onclick="viewHistory('${reading.id}')" title="Click to view ${reading.name} history">${reading.temperature.toFixed(1)}${temperatureSymbol}</span>
                     </li>
                 `;
             }).join('');
