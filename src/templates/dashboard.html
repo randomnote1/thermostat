@@ -588,6 +588,9 @@
                 updateModeButtons();
                 document.getElementById('hvac-mode').textContent = mode.toUpperCase();
                 showSuccess(`HVAC mode set to ${mode.toUpperCase()}`);
+                // Track what the user set to prevent polling from overwriting
+                lastModeChangeTime = Date.now();
+                lastModeChangeValue = mode;
                 // Don't call updateDashboard() - let the 5-second interval sync to prevent race conditions
             } catch (error) {
                 showError(`Failed to set mode: ${error.message}`);
@@ -596,6 +599,9 @@
 
         let lastFanChangeTime = 0;
         let lastFanChangeValue = null;  // Track what value user set
+        
+        let lastModeChangeTime = 0;
+        let lastModeChangeValue = null;  // Track what mode user set
 
         function setFan(fanOn) {
             const xhr = new XMLHttpRequest();
@@ -667,10 +673,32 @@
                         systemTemp !== null ? `${systemTemp.toFixed(1)}${temperatureSymbol}` : '--';
 
                     // Update HVAC mode
-                    currentMode = (data.hvac_mode || 'off').toLowerCase();
-                    document.getElementById('hvac-mode').textContent = 
-                        currentMode.toUpperCase();
-                    updateModeButtons();
+                    const serverMode = (data.hvac_mode || 'off').toLowerCase();
+                    
+                    // If user recently changed mode, wait until server confirms the same value
+                    if (lastModeChangeValue !== null) {
+                        if (serverMode === lastModeChangeValue) {
+                            // Server has confirmed the user's change - clear the pending state
+                            lastModeChangeValue = null;
+                            currentMode = serverMode;
+                            document.getElementById('hvac-mode').textContent = currentMode.toUpperCase();
+                            updateModeButtons();
+                        } else {
+                            // Server hasn't confirmed yet - keep current mode, don't update
+                            // Add timeout safety: if server doesn't confirm within 60 seconds, give up and sync
+                            if (Date.now() - lastModeChangeTime > 60000) {
+                                lastModeChangeValue = null;
+                                currentMode = serverMode;
+                                document.getElementById('hvac-mode').textContent = currentMode.toUpperCase();
+                                updateModeButtons();
+                            }
+                        }
+                    } else {
+                        // No recent user change - update from server normally
+                        currentMode = serverMode;
+                        document.getElementById('hvac-mode').textContent = currentMode.toUpperCase();
+                        updateModeButtons();
+                    }
 
                     // Update HVAC status badges
                     const hvacState = data.hvac_state || {};
