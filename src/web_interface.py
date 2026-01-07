@@ -535,8 +535,7 @@ def api_update_sensor_config(sensor_id):
         data = request.json
         name = data.get('name')
         enabled = data.get('enabled')
-        # Automatically set monitored to match enabled state (all enabled sensors are monitored)
-        monitored = enabled if enabled is not None else data.get('monitored')
+        monitored = data.get('monitored')
         
         if not database.update_sensor(sensor_id, name=name, enabled=enabled, monitored=monitored):
             return jsonify({'error': 'Sensor not found'}), 404
