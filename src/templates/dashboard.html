@@ -497,6 +497,7 @@
         let currentMode = 'off';
         let currentTargetHeat = 68;
         let currentTargetCool = 74;
+        let lastFanChange = 0;  // Timestamp of last manual fan change
 
             // Global temperature units
             let temperatureUnits = 'F';
@@ -610,6 +611,7 @@
                 // Explicitly set the checkbox state to confirm
                 fanToggle.checked = fanOn;
                 fanLabel.textContent = fanOn ? 'CONTINUOUS' : 'AUTO';
+                lastFanChange = Date.now();  // Track when we changed it
                 showSuccess(`Fan set to ${fanOn ? 'CONTINUOUS' : 'AUTO'}`);
                 // Don't call updateDashboard() to avoid race condition overwriting our explicit state
             } catch (error) {
@@ -689,11 +691,14 @@
                     document.getElementById('target-heat').textContent = `${currentTargetHeat.toFixed(1)}${temperatureSymbol}`;
                     document.getElementById('target-cool').textContent = `${currentTargetCool.toFixed(1)}${temperatureSymbol}`;
 
-                    // Update fan toggle
-                    const fanToggle = document.getElementById('fan-toggle');
-                    fanToggle.checked = hvacState.fan || false;
-                    document.getElementById('fan-label').textContent = 
-                        fanToggle.checked ? 'CONTINUOUS' : 'AUTO';
+                    // Update fan toggle (skip if user just changed it to avoid race condition)
+                    const timeSinceLastFanChange = Date.now() - lastFanChange;
+                    if (timeSinceLastFanChange > 3000) {  // Wait 3 seconds after manual change
+                        const fanToggle = document.getElementById('fan-toggle');
+                        fanToggle.checked = hvacState.fan || false;
+                        document.getElementById('fan-label').textContent = 
+                            fanToggle.checked ? 'CONTINUOUS' : 'AUTO';
+                    }
                     
                     // Update schedule status
                     updateScheduleStatus(data);
