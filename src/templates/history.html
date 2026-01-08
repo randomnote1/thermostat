@@ -224,9 +224,9 @@
             <div class="nav-links" id="nav-links">
                 <a href="/">Dashboard</a>
                 <a href="/schedules">Schedules</a>
-                <a href="/history" class="active">History</a>
+                <a href="/history" class="history-toggle collapsed active" onclick="toggleHistoryMenu(event)">History</a>
                 <!-- History sub-navigation (mobile only) -->
-                <div class="history-subnav">
+                <div class="history-subnav" id="history-subnav">
                     <a href="#" onclick="switchTab('stats'); closeNav(); return false;" data-tab="stats" class="tab-link active">📊 Stats</a>
                     <a href="#" onclick="switchTab('settings'); closeNav(); return false;" data-tab="settings" class="tab-link">⚙️ Settings</a>
                     <a href="#" onclick="switchTab('hvac'); closeNav(); return false;" data-tab="hvac" class="tab-link">🔥 HVAC</a>
@@ -385,15 +385,10 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
-            function toggleNav() {
-                const navLinks = document.getElementById('nav-links');
-                navLinks.classList.toggle('active');
-            }
-
-            function closeNav() {
-                const navLinks = document.getElementById('nav-links');
-                navLinks.classList.remove('active');
-            }
+        function closeNav() {
+            const navLinks = document.getElementById('nav-links');
+            navLinks.classList.remove('active');
+        }
 
         // Global temperature units
         let temperatureUnits = 'F';

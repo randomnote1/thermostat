@@ -197,9 +197,9 @@
             <div class="nav-links" id="nav-links">
                 <a href="/">Dashboard</a>
                 <a href="/schedules" class="active">Schedules</a>
-                <a href="/history">History</a>
+                <a href="/history" class="history-toggle collapsed" onclick="toggleHistoryMenu(event)">History</a>
                 <!-- History sub-navigation (mobile only) -->
-                <div class="history-subnav">
+                <div class="history-subnav" id="history-subnav">
                     <a href="/history#stats">📊 Stats</a>
                     <a href="/history#settings">⚙️ Settings</a>
                     <a href="/history#hvac">🔥 HVAC</a>
@@ -287,12 +287,6 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
-            function toggleNav() {
-                const navLinks = document.getElementById('nav-links');
-                navLinks.classList.toggle('active');
-            }
-
-        let schedules = [];
 
         function showMessage(message, isError = false) {
             const element = isError ? document.getElementById('error-message') : document.getElementById('success-message');

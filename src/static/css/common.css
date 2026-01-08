@@ -211,6 +211,10 @@ body {
         flex-direction: column;
         order: 3;
         margin-top: 10px;
+        gap: 0; /* Remove gaps between menu items */
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        overflow: hidden;
     }
 
     .nav-links.active {
@@ -219,7 +223,24 @@ body {
 
     .nav a {
         width: 100%;
-        text-align: center;
+        text-align: left;
+        padding: 15px 20px;
+        border-radius: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: transparent;
+        margin: 0;
+    }
+
+    .nav a:last-child {
+        border-bottom: none;
+    }
+
+    .nav a:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav a.active {
+        background: rgba(255, 255, 255, 0.2);
     }
 
     .theme-toggle {
@@ -231,24 +252,56 @@ body {
 
 /* History sub-navigation styles */
 .history-subnav {
-    display: none; /* Hidden on desktop */
+    display: none; /* Hidden on desktop and collapsed by default */
     flex-direction: column;
-    padding-left: 15px;
-    border-left: 3px solid rgba(255, 255, 255, 0.5);
-    margin-left: 10px;
-    margin-top: 5px;
-    margin-bottom: 5px;
+    margin: 0;
+    padding: 0;
+}
+
+.history-subnav.expanded {
+    display: flex;
 }
 
 .history-subnav a {
-    padding: 10px 15px;
+    padding: 12px 20px 12px 45px; /* Indent sub-items */
     font-size: 0.9em;
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.history-subnav a:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.history-subnav a:last-child {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* History toggle link */
+.nav a.history-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.nav a.history-toggle::after {
+    content: '▼';
+    font-size: 0.8em;
+    transition: transform 0.3s;
+}
+
+.nav a.history-toggle.collapsed::after {
+    content: '▶';
 }
 
 @media (max-width: 768px) {
     .history-subnav {
-        display: flex; /* Show in hamburger menu on mobile */
+        display: none; /* Still hidden by default on mobile */
+    }
+    
+    .history-subnav.expanded {
+        display: flex; /* Show when expanded */
     }
 }
 

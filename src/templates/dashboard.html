@@ -505,9 +505,9 @@
             <div class="nav-links" id="nav-links">
                 <a href="/" class="active">Dashboard</a>
                 <a href="/schedules">Schedules</a>
-                <a href="/history">History</a>
+                <a href="/history" class="history-toggle collapsed" onclick="toggleHistoryMenu(event)">History</a>
                 <!-- History sub-navigation (mobile only) -->
-                <div class="history-subnav">
+                <div class="history-subnav" id="history-subnav">
                     <a href="/history#stats">📊 Stats</a>
                     <a href="/history#settings">⚙️ Settings</a>
                     <a href="/history#hvac">🔥 HVAC</a>
@@ -617,11 +617,6 @@
 
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
-        function toggleNav() {
-            const navLinks = document.getElementById('nav-links');
-            navLinks.classList.toggle('active');
-        }
-
         function viewHistory(sensorId = null) {
             if (sensorId) {
                 window.location.href = `/history?sensor=${encodeURIComponent(sensorId)}`;
