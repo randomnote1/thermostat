@@ -611,6 +611,31 @@
     <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <script>
         let currentSensors = [];
+        let currentStages = [];
+        let currentUnits = 'F';  // Default to Fahrenheit
+
+        // Temperature conversion functions
+        function celsiusToUser(tempC, units) {
+            if (units === 'F') {
+                return (tempC * 9/5) + 32;
+            } else if (units === 'K') {
+                return tempC + 273.15;
+            }
+            return tempC;  // Already Celsius
+        }
+
+        function userToCelsius(temp, units) {
+            if (units === 'F') {
+                return (temp - 32) * 5/9;
+            } else if (units === 'K') {
+                return temp - 273.15;
+            }
+            return temp;  // Already Celsius
+        }
+
+        function getUnitSymbol(units) {
+            return units === 'F' ? '°F' : (units === 'K' ? 'K' : '°C');
+        }
 
         // Show message to user
         function showMessage(message, isError = false) {
@@ -631,9 +656,9 @@
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
-                const units = data.temperature_units || 'F';
+                currentUnits = data.temperature_units || 'F';
                 
-                document.getElementById(`units-${units.toLowerCase()}`).checked = true;
+                document.getElementById(`units-${currentUnits.toLowerCase()}`).checked = true;
                 
                 // Load theme preference
                 const savedTheme = localStorage.getItem('theme') || 'auto';
@@ -770,8 +795,7 @@
         }
 
         // ===== HVAC STAGE MANAGEMENT =====
-        let currentStages = [];
-
+        
         // Load HVAC stages
         async function loadStages() {
             try {
@@ -813,6 +837,7 @@
                     <div>Stage</div>
                     <div>GPIO Pin</div>
                     <div>Temp Offset (°C)</div>
+                    <div>Min Run Time ${getUnitSymbol(currentUnits)})</div>
                     <div>Min Run Time (s)</div>
                     <div>Description</div>
                     <div>Enabled</div>
@@ -821,13 +846,16 @@
             `;
             
             sortedStages.forEach(stage => {
+                // Convert temp_offset from Celsius to user units for display
+                const tempOffsetDisplay = celsiusToUser(stage.temp_offset, currentUnits);
+                
                 const row = document.createElement('div');
                 row.className = 'stage-control-row';
                 row.innerHTML = `
                     <div><strong>${stage.stage_type.toUpperCase()}</strong></div>
                     <div><input type="number" value="${stage.stage_number}" onchange="updateStage(${stage.id}, 'stage_number', this.value)" min="1" max="10"></div>
                     <div><input type="number" value="${stage.gpio_pin}" onchange="updateStage(${stage.id}, 'gpio_pin', this.value)" min="0" max="27"></div>
-                    <div><input type="number" step="0.1" value="${stage.temp_offset.toFixed(2)}" onchange="updateStage(${stage.id}, 'temp_offset', this.value)" min="0" max="10"></div>
+                    <div><input type="number" step="0.1" value="${tempOffsetDisplay.toFixed(2)}" onchange="updateStageTempOffset(${stage.id}, this.value)" min="0" max="${currentUnits === 'F' ? 18 : 10}"></div>
                     <div><input type="number" value="${stage.min_run_time}" onchange="updateStage(${stage.id}, 'min_run_time', this.value)" min="60" max="3600"></div>
                     <div><input type="text" value="${escapeHtml(stage.description || '')}" onchange="updateStage(${stage.id}, 'description', this.value)" placeholder="e.g., Primary heat"></div>
                     <div>
@@ -842,6 +870,12 @@
                 container.appendChild(row);
             });
         }
+
+        // Update stage temperature offset (needs conversion)
+        async function updateStageTempOffset(stageId, valueInUserUnits) {
+            // Convert from user units to Celsius for storage
+            const valueInCelsius = userToCelsius(parseFloat(valueInUserUnits), currentUnits);
+            await updateStage(stageId, 'temp_offset', valueInCelsius
 
         // Update stage field
         async function updateStage(stageId, field, value) {
@@ -912,17 +946,20 @@
                     alert('Invalid stage number. Must be a positive integer.');
                 }
                 return;
-            }
-            
-            const gpioPin = prompt('Enter BCM GPIO pin number (0-27):');
-            if (!gpioPin || isNaN(gpioPin) || gpioPin < 0 || gpioPin > 27) {
-                if (gpioPin !== null) {
-                    alert('Invalid GPIO pin. Must be between 0 and 27.');
+            }Prompt = prompt(`Enter temperature offset in ${getUnitSymbol(currentUnits)} (e.g., 0.5 for activation when ${currentUnits === 'F' ? '0.5°F' : '0.5°C'} above target):`);
+            if (!tempOffsetPrompt || isNaN(tempOffsetPrompt)) {
+                if (tempOffsetPrompt !== null) {
+                    alert('Invalid temperature offset. Must be a number.');
                 }
                 return;
             }
             
-            const tempOffset = prompt('Enter temperature offset in °C (e.g., 0.5 for 0.5°C above target):');
+            // Convert user input to Celsius for storage
+            const tempOffsetCelsius = userToCelsius(parseFloat(tempOffsetPrompt), currentUnits);
+            
+            const description = prompt('Enter description (optional):') || '';
+            
+            addStage(stageType.toLowerCase(), parseInt(stageNumber), parseInt(gpioPin), tempOffsetCelsius
             if (!tempOffset || isNaN(tempOffset)) {
                 if (tempOffset !== null) {
                     alert('Invalid temperature offset. Must be a number.');
