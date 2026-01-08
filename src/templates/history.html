@@ -237,6 +237,29 @@
                 text-overflow: ellipsis;
             }
 
+            /* Settings table optimizations for mobile */
+            #tab-settings table tr th:nth-child(3),
+            #tab-settings table tr td:nth-child(3),
+            #tab-settings table tr th:nth-child(5),
+            #tab-settings table tr td:nth-child(5) {
+                display: none; /* Hide Old Value and Source columns on mobile */
+            }
+
+            /* Make remaining Settings columns more compact */
+            #tab-settings table th,
+            #tab-settings table td {
+                padding: 6px 3px;
+                font-size: 0.8em;
+            }
+
+            #tab-settings table th:first-child,
+            #tab-settings table td:first-child {
+                font-size: 0.75em;
+                max-width: 70px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
             .tabs {
                 display: none; /* Hide tab buttons on mobile */
             }
