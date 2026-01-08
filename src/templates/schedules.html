@@ -255,6 +255,9 @@
             .modal {
                 overflow-y: auto;
                 align-items: flex-start;
+            }
+
+            .modal.show {
                 display: flex;
             }
 
@@ -391,11 +394,15 @@
             document.getElementById('modal-title').textContent = 'Create Schedule';
             document.getElementById('scheduleForm').reset();
             document.getElementById('schedule-id').value = '';
-            document.getElementById('scheduleModal').style.display = 'block';
+            const modal = document.getElementById('scheduleModal');
+            modal.style.display = 'block';
+            modal.classList.add('show');
         }
 
         function closeModal() {
-            document.getElementById('scheduleModal').style.display = 'none';
+            const modal = document.getElementById('scheduleModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
         }
 
         async function loadSchedules() {
