@@ -115,6 +115,7 @@
 
         .checkbox-label {
             display: flex;
+            flex-direction: row;
             align-items: center;
             gap: 10px;
             cursor: pointer;
@@ -133,7 +134,7 @@
         /* Ensure text is vertically centered with checkbox */
         .checkbox-label span,
         .stage-field .checkbox-label {
-            display: flex;
+            display: inline-flex;
             align-items: center;
         }
 
@@ -619,6 +620,7 @@
             .stage-control-row .checkbox-label {
                 justify-content: flex-start;
                 padding: 8px 0;
+                flex-direction: row !important;
             }
 
             /* Buttons */
