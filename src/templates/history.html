@@ -608,18 +608,45 @@
                     return;
                 }
                 
-                tbody.innerHTML = history.map(record => `
-                    <tr>
-                        <td>${formatDateTime(record.timestamp)}</td>
-                        <td><strong>${record.setting_name}</strong></td>
-                        <td>${record.old_value || '-'}</td>
-                        <td>${record.new_value}</td>
-                        <td><em>${record.source}</em></td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = history.map(record => {
+                    const oldValue = formatSettingValue(record.setting_name, record.old_value);
+                    const newValue = formatSettingValue(record.setting_name, record.new_value);
+                    
+                    return `
+                        <tr>
+                            <td>${formatDateTime(record.timestamp)}</td>
+                            <td><strong>${record.setting_name}</strong></td>
+                            <td>${oldValue}</td>
+                            <td>${newValue}</td>
+                            <td><em>${record.source}</em></td>
+                        </tr>
+                    `;
+                }).join('');
             } catch (error) {
                 console.error('Failed to load setting history:', error);
             }
+        }
+
+        function formatSettingValue(settingName, value) {
+            if (!value && value !== 0) return '-';
+            
+            // Check if this is a temperature setting (stored in Celsius, needs conversion)
+            if (settingName.includes('temp') && !isNaN(value)) {
+                const numValue = parseFloat(value);
+                // Convert from Celsius to user's preferred units
+                let displayValue = numValue;
+                if (temperatureUnits === 'F') {
+                    displayValue = (numValue * 9/5) + 32;
+                }
+                return displayValue.toFixed(1) + temperatureSymbol;
+            }
+            
+            // For non-temperature numeric values, round to 1 decimal
+            if (!isNaN(value)) {
+                return parseFloat(value).toFixed(1);
+            }
+            
+            return value;
         }
 
         async function loadHvacHistory() {
