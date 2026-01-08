@@ -983,8 +983,7 @@
 
         // Render sensor list
         function renderSensors() {
-            cons    <div>Actions</div>
-                t container = document.getElementById('sensor-list');
+            const container = document.getElementById('sensor-list');
             
             if (currentSensors.length === 0) {
                 container.innerHTML = `
