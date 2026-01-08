@@ -263,22 +263,11 @@ body {
 }
 
 .history-subnav a {
-    padding: 12px 20px 12px 40px;
-        /* Subtle indent for sub-items */
-        font-size: 0.9em;
-        background: transparent;
-        /* Keep same background as parent items */
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.9);
-        position: relative;
-    }
-    
-    /* Add subtle bullet/dash indicator */
-    .history-subnav a::before {
-        content: '•';
-        position: absolute;
-        left: 25px;
-        opacity: 0.6;
+    padding: 12px 20px 12px 40px; /* Subtle indent for sub-items */
+    font-size: 0.9em;
+    background: transparent; /* Keep same background as parent items */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .history-subnav a:hover {
