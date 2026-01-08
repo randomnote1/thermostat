@@ -229,6 +229,29 @@ body {
     }
 }
 
+/* History sub-navigation styles */
+.history-subnav {
+    display: none; /* Hidden on desktop */
+    flex-direction: column;
+    padding-left: 15px;
+    border-left: 3px solid rgba(255, 255, 255, 0.5);
+    margin-left: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.history-subnav a {
+    padding: 10px 15px;
+    font-size: 0.9em;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+    .history-subnav {
+        display: flex; /* Show in hamburger menu on mobile */
+    }
+}
+
 @media (max-width: 360px) {
     .card h2 {
         font-size: 1.2em;

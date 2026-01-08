@@ -178,7 +178,7 @@
             }
 
             .tabs {
-                flex-direction: column;
+                display: none; /* Hide tab buttons on mobile */
             }
 
             .tab-button {
@@ -188,6 +188,27 @@
 
             .tab-button:last-child {
                 border-bottom: none;
+            }
+        }
+
+        /* History sub-navigation styles */
+        .history-subnav {
+            display: none; /* Hidden on desktop */
+            flex-direction: column;
+            padding-left: 15px;
+            border-left: 3px solid var(--accent-color);
+            margin-left: 10px;
+            margin-top: 10px;
+        }
+
+        .history-subnav a {
+            padding: 10px 15px;
+            font-size: 0.95em;
+        }
+
+        @media (max-width: 768px) {
+            .history-subnav {
+                display: flex; /* Show in hamburger menu on mobile */
             }
         }
     </style>
@@ -204,6 +225,13 @@
                 <a href="/">Dashboard</a>
                 <a href="/schedules">Schedules</a>
                 <a href="/history" class="active">History</a>
+                <!-- History sub-navigation (mobile only) -->
+                <div class="history-subnav">
+                    <a href="#" onclick="switchTab('stats'); closeNav(); return false;" data-tab="stats" class="tab-link active">📊 Stats</a>
+                    <a href="#" onclick="switchTab('settings'); closeNav(); return false;" data-tab="settings" class="tab-link">⚙️ Settings</a>
+                    <a href="#" onclick="switchTab('hvac'); closeNav(); return false;" data-tab="hvac" class="tab-link">🔥 HVAC</a>
+                    <a href="#" onclick="switchTab('sensors'); closeNav(); return false;" data-tab="sensors" class="tab-link">🌡️ Sensors</a>
+                </div>
                 <a href="/settings">Settings</a>
             </div>
             <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
@@ -362,6 +390,11 @@
                 navLinks.classList.toggle('active');
             }
 
+            function closeNav() {
+                const navLinks = document.getElementById('nav-links');
+                navLinks.classList.remove('active');
+            }
+
         // Global temperature units
         let temperatureUnits = 'F';
         let temperatureSymbol = '°F';
@@ -397,6 +430,10 @@
                 const buttons = document.querySelectorAll('.tab-button');
                 buttons.forEach(button => button.classList.remove('active'));
 
+                // Deactivate all tab links in hamburger menu
+                const tabLinks = document.querySelectorAll('.tab-link');
+                tabLinks.forEach(link => link.classList.remove('active'));
+
                 // Show selected tab content
                 document.getElementById(`tab-${tabName}`).classList.add('active');
 
@@ -404,6 +441,12 @@
                 const buttonIndex = ['stats', 'settings', 'hvac', 'sensors'].indexOf(tabName);
                 if (buttonIndex >= 0) {
                     buttons[buttonIndex].classList.add('active');
+                }
+
+                // Activate the correct tab link in hamburger menu
+                const activeTabLink = document.querySelector(`.tab-link[data-tab="${tabName}"]`);
+                if (activeTabLink) {
+                    activeTabLink.classList.add('active');
                 }
 
                 // Update URL fragment without scrolling
