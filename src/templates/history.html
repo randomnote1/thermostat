@@ -209,28 +209,28 @@
             }
 
             /* HVAC table optimizations for mobile */
-            #hvac-history th:nth-child(3),
-            #hvac-history td:nth-child(3),
-            #hvac-history th:nth-child(4),
-            #hvac-history td:nth-child(4),
-            #hvac-history th:nth-child(7),
-            #hvac-history td:nth-child(7),
-            #hvac-history th:nth-child(8),
-            #hvac-history td:nth-child(8),
-            #hvac-history th:nth-child(9),
-            #hvac-history td:nth-child(9) {
+            #tab-hvac table tr th:nth-child(3),
+            #tab-hvac table tr td:nth-child(3),
+            #tab-hvac table tr th:nth-child(4),
+            #tab-hvac table tr td:nth-child(4),
+            #tab-hvac table tr th:nth-child(7),
+            #tab-hvac table tr td:nth-child(7),
+            #tab-hvac table tr th:nth-child(8),
+            #tab-hvac table tr td:nth-child(8),
+            #tab-hvac table tr th:nth-child(9),
+            #tab-hvac table tr td:nth-child(9) {
                 display: none; /* Hide Target Heat, Target Cool, Heat, Cool, Fan columns on mobile */
             }
 
             /* Make remaining HVAC columns more compact */
-            #hvac-history th,
-            #hvac-history td {
+            #tab-hvac table th,
+            #tab-hvac table td {
                 padding: 6px 3px;
                 font-size: 0.8em;
             }
 
-            #hvac-history th:first-child,
-            #hvac-history td:first-child {
+            #tab-hvac table th:first-child,
+            #tab-hvac table td:first-child {
                 font-size: 0.75em;
                 max-width: 70px;
                 overflow: hidden;
