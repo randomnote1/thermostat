@@ -875,7 +875,8 @@
         async function updateStageTempOffset(stageId, valueInUserUnits) {
             // Convert from user units to Celsius for storage
             const valueInCelsius = userToCelsius(parseFloat(valueInUserUnits), currentUnits);
-            await updateStage(stageId, 'temp_offset', valueInCelsius
+            await updateStage(stageId, 'temp_offset', valueInCelsius);
+        }
 
         // Update stage field
         async function updateStage(stageId, field, value) {
