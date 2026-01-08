@@ -170,15 +170,20 @@
         @media (max-width: 768px) {
             .filters {
                 flex-direction: column;
+                gap: 10px; /* Consistent spacing between dropdowns */
             }
 
             .filters select {
-                width: 100%; /* Make all dropdowns full width on mobile */
+                width: 100% !important; /* Make all dropdowns full width on mobile, override inline styles */
+                margin-left: 0 !important; /* Remove left margin on mobile */
             }
 
             .chart-container {
-                padding: 10px; /* Reduce padding on mobile for more graph space */
-                height: 350px; /* Slightly shorter to fit better on mobile */
+                padding: 10px !important; /* Reduce padding on mobile for more graph space */
+                height: 350px !important; /* Slightly shorter to fit better on mobile */
+                margin-left: -5px; /* Compensate for card padding */
+                margin-right: -5px;
+                width: calc(100% + 10px); /* Expand to use full card width */
             }
 
             th, td {
