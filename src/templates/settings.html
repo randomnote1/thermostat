@@ -57,6 +57,7 @@
 
         .sensor-list {
             display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
             gap: 15px;
         }
 
@@ -542,6 +543,10 @@
             }
 
             /* Sensor configuration */
+            .sensor-list {
+                grid-template-columns: 1fr;
+            }
+
             .sensor-card {
                 padding: 15px;
             }
