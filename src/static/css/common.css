@@ -263,14 +263,16 @@ body {
 }
 
 .history-subnav a {
-    padding: 12px 20px 12px 45px; /* Indent sub-items */
-    font-size: 0.9em;
-    background: rgba(0, 0, 0, 0.15);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 12px 20px 12px 55px; /* More indent for sub-items */
+    font-size: 0.85em;
+    background: rgba(0, 0, 0, 0.25); /* Darker but cohesive */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .history-subnav a:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.35);
+    color: white;
 }
 
 .history-subnav a:last-child {
