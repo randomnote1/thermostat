@@ -222,7 +222,6 @@
         }
 
         .stage-control-row:hover {
-            background: var(--card-bg);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
@@ -239,8 +238,8 @@
             padding: 6px 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            background: var(--card-bg);
-            color: var(--text-primary);
+            background: white;
+            color: #333;
             font-size: 0.95em;
             width: 100%;
         }
@@ -309,15 +308,28 @@
             :root:not(.light-mode) .sensor-control-row input[type="text"],
             :root:not(.light-mode) .stage-control-row input[type="number"],
             :root:not(.light-mode) .stage-control-row input[type="text"] {
-                background: #374151;
+                background: #1f2937;
                 border: 1px solid #4b5563;
-                color: #e2e8f0;
+                color: #f3f4f6;
+            }
+
+            :root:not(.light-mode) .stage-control-row:hover {
+                background: #2d3748;
             }
 
             :root:not(.light-mode) .stage-control-row input[type="number"]:focus,
             :root:not(.light-mode) .stage-control-row input[type="text"]:focus {
                 border-color: #a78bfa;
+                background: #111827;
                 box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+            }
+
+            :root:not(.light-mode) .delete-button {
+                background: #dc2626;
+            }
+
+            :root:not(.light-mode) .delete-button:hover {
+                background: #b91c1c;
             }
 
             :root:not(.light-mode) .sensor-id {
@@ -343,6 +355,15 @@
                 color: #fca5a5;
                 border-color: #f56565;
             }
+        }
+
+        /* Light mode explicit overrides */
+        .light-mode .stage-control-row input[type="number"],
+        .light-mode .stage-control-row input[type="text"],
+        .light-mode .sensor-control-row input[type="text"] {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #333;
         }
 
         :root.dark-mode .info-box {
