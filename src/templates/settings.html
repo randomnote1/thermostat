@@ -429,6 +429,18 @@
                 color: #9ca3af;
             }
 
+            :root:not(.light-mode) .sensor-input-section input[type="text"] {
+                background: #1f2937;
+                border: 1px solid #4b5563;
+                color: #f3f4f6;
+            }
+
+            :root:not(.light-mode) .sensor-input-section input[type="text"]:focus {
+                border-color: #a78bfa;
+                background: #111827;
+                box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+            }
+
             :root:not(.light-mode) .setting-description {
                 color: #cbd5e0;
             }
@@ -491,6 +503,18 @@
 
         :root.dark-mode .sensor-id {
             color: #9ca3af;
+        }
+
+        :root.dark-mode .sensor-input-section input[type="text"] {
+            background: #1f2937;
+            border: 1px solid #4b5563;
+            color: #f3f4f6;
+        }
+
+        :root.dark-mode .sensor-input-section input[type="text"]:focus {
+            border-color: #a78bfa;
+            background: #111827;
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
         }
 
         :root.dark-mode .setting-description {
