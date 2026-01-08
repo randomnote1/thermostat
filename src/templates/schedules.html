@@ -16,12 +16,18 @@
             :root:not(.light-mode) {
                 --input-bg: #374151;
                 --input-border: #4a5568;
+                color-scheme: dark;
             }
         }
 
         :root.dark-mode {
             --input-bg: #374151;
             --input-border: #4a5568;
+            color-scheme: dark;
+        }
+
+        :root.light-mode {
+            color-scheme: light;
         }
 
         .btn {
@@ -142,9 +148,6 @@
         }
 
         .form-group input[type="time"] {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
             min-height: 40px;
         }
 
@@ -223,10 +226,6 @@
                 color: #fed7d7;
                 border-color: #c53030;
             }
-
-            :root:not(.light-mode) .form-group input[type="time"]::-webkit-calendar-picker-indicator {
-                filter: invert(1);
-            }
         }
 
         :root.dark-mode .success-message {
@@ -239,10 +238,6 @@
             background: #742a2a;
             color: #fed7d7;
             border-color: #c53030;
-        }
-
-        :root.dark-mode .form-group input[type="time"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
         }
 
         @media (max-width: 768px) {
