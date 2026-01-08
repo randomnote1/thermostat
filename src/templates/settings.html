@@ -578,7 +578,10 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 15px;">
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button id="save-stages-button" class="save-button" onclick="saveStageChanges()" disabled>
+                        Save Changes
+                    </button>
                     <button class="save-button" onclick="showAddStageDialog()">
                         Add New Stage
                     </button>
@@ -613,6 +616,7 @@
         let currentSensors = [];
         let currentStages = [];
         let currentUnits = 'F';  // Default to Fahrenheit
+        let modifiedStages = new Set();  // Track which stages have unsaved changes
 
         // Temperature conversion functions
         // NOTE: These convert temperature DIFFERENCES (deltas), not absolute temperatures
@@ -805,7 +809,11 @@
                 const data = await response.json();
                 currentStages = data || [];
                 
+                // Clear any pending modifications when reloading
+                modifiedStages.clear();
+                
                 renderStages();
+                updateSaveButtonState();
             } catch (error) {
                 console.error('Error loading stages:', error);
                 showMessage('Error loading HVAC stages: ' + error.message, true);
@@ -852,16 +860,17 @@
                 
                 const row = document.createElement('div');
                 row.className = 'stage-control-row';
+                row.id = `stage-row-${stage.id}`;
                 row.innerHTML = `
                     <div><strong>${stage.stage_type.toUpperCase()}</strong></div>
-                    <div><input type="number" value="${stage.stage_number}" onchange="updateStage(${stage.id}, 'stage_number', this.value)" min="1" max="10"></div>
-                    <div><input type="number" value="${stage.gpio_pin}" onchange="updateStage(${stage.id}, 'gpio_pin', this.value)" min="0" max="27"></div>
-                    <div><input type="number" step="0.1" value="${tempOffsetDisplay.toFixed(2)}" onchange="updateStageTempOffset(${stage.id}, this.value)" min="0" max="${currentUnits === 'F' ? 18 : 10}"></div>
-                    <div><input type="number" value="${stage.min_run_time}" onchange="updateStage(${stage.id}, 'min_run_time', this.value)" min="60" max="3600"></div>
-                    <div><input type="text" value="${escapeHtml(stage.description || '')}" onchange="updateStage(${stage.id}, 'description', this.value)" placeholder="e.g., Primary heat"></div>
+                    <div><input type="number" value="${stage.stage_number}" data-stage-id="${stage.id}" data-field="stage_number" oninput="markStageModified(${stage.id})" min="1" max="10"></div>
+                    <div><input type="number" value="${stage.gpio_pin}" data-stage-id="${stage.id}" data-field="gpio_pin" oninput="markStageModified(${stage.id})" min="0" max="27"></div>
+                    <div><input type="number" step="0.1" value="${tempOffsetDisplay.toFixed(2)}" data-stage-id="${stage.id}" data-field="temp_offset" data-needs-conversion="true" oninput="markStageModified(${stage.id})" min="0" max="${currentUnits === 'F' ? 18 : 10}"></div>
+                    <div><input type="number" value="${stage.min_run_time}" data-stage-id="${stage.id}" data-field="min_run_time" oninput="markStageModified(${stage.id})" min="60" max="3600"></div>
+                    <div><input type="text" value="${escapeHtml(stage.description || '')}" data-stage-id="${stage.id}" data-field="description" oninput="markStageModified(${stage.id})" placeholder="e.g., Primary heat"></div>
                     <div>
                         <label class="checkbox-label">
-                            <input type="checkbox" ${stage.enabled ? 'checked' : ''} onchange="updateStage(${stage.id}, 'enabled', this.checked)">
+                            <input type="checkbox" ${stage.enabled ? 'checked' : ''} data-stage-id="${stage.id}" data-field="enabled" onchange="markStageModified(${stage.id})">
                         </label>
                     </div>
                     <div>
@@ -872,39 +881,101 @@
             });
         }
 
-        // Update stage temperature offset (needs conversion)
-        async function updateStageTempOffset(stageId, valueInUserUnits) {
-            // Convert from user units to Celsius for storage
-            const valueInCelsius = userToCelsius(parseFloat(valueInUserUnits), currentUnits);
-            await updateStage(stageId, 'temp_offset', valueInCelsius);
+        // Mark stage as modified
+        function markStageModified(stageId) {
+            modifiedStages.add(stageId);
+            const row = document.getElementById(`stage-row-${stageId}`);
+            if (row) {
+                row.style.backgroundColor = 'var(--info-bg)';
+                row.style.borderLeft = '3px solid var(--accent-color)';
+            }
+            updateSaveButtonState();
         }
 
-        // Update stage field
-        async function updateStage(stageId, field, value) {
-            try {
-                const response = await fetch(`/api/hvac-stages/${stageId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ [field]: value })
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to update stage');
+        // Update save button state
+        function updateSaveButtonState() {
+            const saveButton = document.getElementById('save-stages-button');
+            if (saveButton) {
+                saveButton.disabled = modifiedStages.size === 0;
+                saveButton.textContent = modifiedStages.size > 0 ? `Save Changes (${modifiedStages.size})` : 'Save Changes';
+            }
+        }
+
+        // Save all modified stages
+        async function saveStageChanges() {
+            if (modifiedStages.size === 0) return;
+
+            const saveButton = document.getElementById('save-stages-button');
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const stageId of modifiedStages) {
+                try {
+                    // Collect all field values from inputs
+                    const inputs = document.querySelectorAll(`[data-stage-id="${stageId}"]`);
+                    const updates = {};
+
+                    inputs.forEach(input => {
+                        const field = input.dataset.field;
+                        let value;
+
+                        if (input.type === 'checkbox') {
+                            value = input.checked;
+                        } else if (input.type === 'number') {
+                            value = parseFloat(input.value);
+                            // Convert temperature offset from user units to Celsius
+                            if (field === 'temp_offset' && input.dataset.needsConversion === 'true') {
+                                value = userToCelsius(value, currentUnits);
+                            }
+                        } else {
+                            value = input.value;
+                        }
+
+                        updates[field] = value;
+                    });
+
+                    const response = await fetch(`/api/hvac-stages/${stageId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updates)
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to update stage');
+                    }
+
+                    // Update local data
+                    const stage = currentStages.find(s => s.id === stageId);
+                    if (stage) {
+                        Object.assign(stage, updates);
+                    }
+
+                    // Remove modified styling
+                    const row = document.getElementById(`stage-row-${stageId}`);
+                    if (row) {
+                        row.style.backgroundColor = '';
+                        row.style.borderLeft = '';
+                    }
+
+                    successCount++;
+                } catch (error) {
+                    console.error(`Error updating stage ${stageId}:`, error);
+                    errorCount++;
                 }
-                
-                // Update local data
-                const stage = currentStages.find(s => s.id === stageId);
-                if (stage) {
-                    stage[field] = value;
-                }
-                
-                showMessage('Stage updated successfully');
-            } catch (error) {
-                console.error('Error updating stage:', error);
-                showMessage('Error updating stage: ' + error.message, true);
-                // Reload to show original value
-                loadStages();
+            }
+
+            modifiedStages.clear();
+            updateSaveButtonState();
+
+            if (errorCount > 0) {
+                showMessage(`Saved ${successCount} stage(s), ${errorCount} failed`, true);
+                loadStages();  // Reload to show original values for failed updates
+            } else {
+                showMessage(`Successfully saved ${successCount} stage(s)`);
             }
         }
 
