@@ -245,6 +245,13 @@
             align-items: center;
         }
 
+        /* Style for type display field */
+        .stage-field strong {
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
+
         /* Hide labels on desktop - they're shown in the header */
         .stage-control-row label {
             font-weight: 500;
@@ -595,6 +602,11 @@
             .stage-field {
                 display: flex;
                 flex-direction: column;
+            }
+
+            /* Hide the Type field on mobile since it's in the title */
+            .stage-field:first-child {
+                display: none;
             }
 
             /* Description and delete button span full width */
@@ -1082,6 +1094,10 @@
                 row.innerHTML = `
                     <div class="stage-title"><strong>${stage.stage_type.toUpperCase()} Stage ${stage.stage_number}</strong></div>
                     <div class="stage-fields">
+                        <div class="stage-field">
+                            <label>Type</label>
+                            <strong>${stage.stage_type.toUpperCase()}</strong>
+                        </div>
                         <div class="stage-field">
                             <label>Stage Number</label>
                             <input type="number" value="${stage.stage_number}" data-stage-id="${stage.id}" data-field="stage_number" oninput="markStageModified(${stage.id})" min="1" max="10">
