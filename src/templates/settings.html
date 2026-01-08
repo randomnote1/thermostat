@@ -137,18 +137,7 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .
-
-        .sensor-save-section {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .sensor-save-section .save-button {
-            padding: 8px 16px;
-            font-size: 0.9em;
-        }sensor-enabled-section {
+        .sensor-enabled-section {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -596,7 +585,6 @@
                 flex-direction: column;
                 gap: 12px;
                 padding: 15px;
-                display: block !important;
                 border: 1px solid var(--border-color);
             }
 
@@ -611,11 +599,7 @@
                 gap: 5px;
             }
 
-            .
-
-            .sensor-save-section .save-button {
-                width: 100%;
-            }sensor-input-section label {
+            .sensor-input-section label {
                 font-weight: 600;
                 font-size: 0.85em;
                 color: var(--text-secondary);
@@ -1012,6 +996,13 @@
                     </div>
                     <div class="sensor-input-section">
                         <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
+                        <input 
+                            type="text" 
+                            id="name-${escapeHtml(sensor.sensor_id)}"
+                            value="${escapeHtml(sensor.name || '')}"
+                            placeholder="e.g., Living Room"
+                            data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                            onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
                         >
                     </div>
                     <div class="sensor-enabled-section">
@@ -1021,25 +1012,20 @@
                                 id="enabled-${escapeHtml(sensor.sensor_id)}"
                                 ${sensor.enabled ? 'checked' : ''}
                                 data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                                onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
                             >
                             <span>Enabled</span>
                         </label>
                     </div>
-                    <div class="sensor-save-section">
-                        <button class="save-button" onclick="saveSensor('${escapeHtml(sensor.sensor_id)}')">
-                            Save
-                        </button id="enabled-${escapeHtml(sensor.sensor_id)}"
-                                ${sensor.enabled ? 'checked' : ''}
-                                data-sensor-id="${escapeHtml(sensor.sensor_id)}"
-                                onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
-                            >
-                            <span(sensorId) {
+                `;
+                ontainer.appendChild(card);
+            });
+        }
+
+        // Save sensor configuration (auto-save on change)
+        async function saveSensorField(sensorId) {
             const nameInput = document.getElementById(`name-${sensorId}`);
             const enabledInput = document.getElementById(`enabled-${sensorId}`);
-            
-            const saveButton = event.target;
-            saveButton.disabled = true;
-            saveButton.textContent = 'Saving...';
             
             try {
                 const response = await fetch(`/api/sensors/config/${encodeURIComponent(sensorId)}`, {
@@ -1057,22 +1043,8 @@
                     throw new Error(error.error || 'Failed to save sensor');
                 }
                 
-                showMessage(`Sensor "${nameInput.value || sensorId}" saved successfully`);
-                
                 // Update local data
                 const sensor = currentSensors.find(s => s.sensor_id === sensorId);
-                if (sensor) {
-                    sensor.name = nameInput.value;
-                    sensor.enabled = enabledInput.checked;
-                    sensor.monitored = enabledInput.checked;
-                }
-                
-            } catch (error) {
-                console.error('Error saving sensor:', error);
-                showMessage('Error saving sensor: ' + error.message, true);
-            } finally {
-                saveButton.disabled = false;
-                saveButton.textContent = 'Save'nsorId);
                 if (sensor) {
                     sensor.name = nameInput.value;
                     sensor.enabled = enabledInput.checked;
