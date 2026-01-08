@@ -132,11 +132,16 @@ class ThermostatController:
                 logger.info(f"Loaded persisted settings: heat={self.target_temp_heat}°C, "
                           f"cool={self.target_temp_cool}°C, mode={self.hvac_mode}, fan_mode={fan_mode}")
         
-        # GPIO configuration
-        self.gpio_relay_heat = int(os.getenv('GPIO_RELAY_HEAT', 17))
-        self.gpio_relay_cool = int(os.getenv('GPIO_RELAY_COOL', 27))
-        self.gpio_relay_fan = int(os.getenv('GPIO_RELAY_FAN', 22))
-        self.gpio_relay_heat2 = int(os.getenv('GPIO_RELAY_HEAT2', 23))
+        # Load HVAC stages from database (dynamic N+1 stage support)
+        self.heating_stages = []
+        self.cooling_stages = []
+        self.fan_gpio_pin = int(os.getenv('GPIO_RELAY_FAN', 22))
+        
+        if self.db:
+            self._load_hvac_stages()
+        else:
+            # Fallback to config for backwards compatibility if no database
+            self._load_stages_from_config()
         
         # Sensor mapping - load from database first, fall back to env
         self.sensor_map = {}
@@ -153,8 +158,13 @@ class ThermostatController:
         # State tracking
         self.sensor_history: Dict[str, List[SensorReading]] = {}
         self.compromised_sensors: Dict[str, datetime] = {}
+        # Track stage states dynamically
+        self.active_heat_stages: List[int] = []  # List of active heating stage numbers
+        self.active_cool_stages: List[int] = []  # List of active cooling stage numbers
+        # Backwards compatible hvac_state for web interface
         self.hvac_state = {'heat': False, 'cool': False, 'fan': False, 'heat2': False}
         self.last_hvac_change = datetime.now()
+        self.last_stage_changes: Dict[Tuple[str, int], datetime] = {}  # Track per-stage timing
         self.last_sensor_read = datetime.now() - timedelta(seconds=self.sensor_read_interval)
         self.last_history_log = datetime.now()
         self.last_schedule_check = datetime.now()
@@ -182,14 +192,85 @@ class ThermostatController:
         if GPIO:
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
-            GPIO.setup(self.gpio_relay_heat, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self.gpio_relay_cool, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self.gpio_relay_fan, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self.gpio_relay_heat2, GPIO.OUT, initial=GPIO.LOW)
-            logger.info("GPIO initialized")
+            # Initialize fan pin
+            GPIO.setup(self.fan_gpio_pin, GPIO.OUT, initial=GPIO.LOW)
+            # Initialize all stage pins
+            for stage in self.heating_stages:
+                GPIO.setup(stage['gpio_pin'], GPIO.OUT, initial=GPIO.LOW)
+                logger.debug(f"Initialized heat stage {stage['stage_number']}: GPIO {stage['gpio_pin']}")
+            for stage in self.cooling_stages:
+                GPIO.setup(stage['gpio_pin'], GPIO.OUT, initial=GPIO.LOW)
+                logger.debug(f"Initialized cool stage {stage['stage_number']}: GPIO {stage['gpio_pin']}")
+            logger.info(f"GPIO initialized: {len(self.heating_stages)} heat stages, "
+                       f"{len(self.cooling_stages)} cool stages")
         
         logger.info(f"Thermostat initialized - Mode: {self.hvac_mode}, "
                    f"Heat: {self.target_temp_heat}°F, Cool: {self.target_temp_cool}°F")
+    
+    def _load_hvac_stages(self) -> None:
+        """Load HVAC stage configurations from database"""
+        if not self.db:
+            return
+        
+        # Load heating stages
+        heat_stages = self.db.get_hvac_stages(stage_type='heat', enabled_only=True)
+        self.heating_stages = heat_stages
+        logger.info(f"Loaded {len(self.heating_stages)} heating stages from database")
+        
+        # Load cooling stages
+        cool_stages = self.db.get_hvac_stages(stage_type='cool', enabled_only=True)
+        self.cooling_stages = cool_stages
+        logger.info(f"Loaded {len(self.cooling_stages)} cooling stages from database")
+        
+        # Log stage details
+        for stage in self.heating_stages:
+            logger.debug(f"  Heat Stage {stage['stage_number']}: GPIO {stage['gpio_pin']}, "
+                        f"offset {stage['temp_offset']}°C, min_run={stage['min_run_time']}s")
+        for stage in self.cooling_stages:
+            logger.debug(f"  Cool Stage {stage['stage_number']}: GPIO {stage['gpio_pin']}, "
+                        f"offset {stage['temp_offset']}°C, min_run={stage['min_run_time']}s")
+    
+    def _load_stages_from_config(self) -> None:
+        """Fallback: Load stages from config.env if no database available"""
+        logger.warning("Loading stages from config.env (database not available)")
+        
+        # Create default heating stages
+        self.heating_stages = [
+            {
+                'id': 1,
+                'stage_type': 'heat',
+                'stage_number': 1,
+                'gpio_pin': int(os.getenv('GPIO_RELAY_HEAT', 17)),
+                'temp_offset': 0.28,  # ~0.5°F
+                'min_run_time': self.hvac_min_run_time,
+                'enabled': 1,
+                'description': 'Primary heating'
+            },
+            {
+                'id': 2,
+                'stage_type': 'heat',
+                'stage_number': 2,
+                'gpio_pin': int(os.getenv('GPIO_RELAY_HEAT2', 23)),
+                'temp_offset': 1.67,  # ~3°F
+                'min_run_time': self.hvac_min_run_time,
+                'enabled': 1,
+                'description': 'Secondary/auxiliary heating'
+            }
+        ]
+        
+        # Create default cooling stages
+        self.cooling_stages = [
+            {
+                'id': 3,
+                'stage_type': 'cool',
+                'stage_number': 1,
+                'gpio_pin': int(os.getenv('GPIO_RELAY_COOL', 27)),
+                'temp_offset': 0.28,  # ~0.5°F
+                'min_run_time': self.hvac_min_run_time,
+                'enabled': 1,
+                'description': 'Primary cooling'
+            }
+        ]
     
     def _load_sensors_from_database(self) -> None:
         """Load sensor configuration from database"""
@@ -341,10 +422,8 @@ class ThermostatController:
         return system_temp
     
     def control_hvac(self, system_temp: float) -> None:
-        """Control HVAC system based on system temperature"""
+        """Control HVAC system with dynamic multi-stage support"""
         # Determine fan state based on manual mode or auto mode
-        # In manual mode, fan is always controlled by user setting
-        # In auto mode, fan runs with heat/cool
         def get_fan_state(hvac_active: bool) -> bool:
             if self.manual_fan_mode:
                 return True  # Manual continuous mode - always on
@@ -352,81 +431,169 @@ class ThermostatController:
                 return hvac_active  # Auto mode - on when HVAC is active
         
         if self.hvac_mode == 'off':
-            # In manual fan mode, keep fan running even when HVAC is off
+            # Turn off all stages and set fan per mode
             fan_state = get_fan_state(False)
-            self._set_hvac_state(heat=False, cool=False, fan=fan_state, heat2=False)
-            return
-        
-        # Check minimum run/rest time constraints
-        time_since_change = (datetime.now() - self.last_hvac_change).total_seconds()
-        
-        current_running = self.hvac_state['heat'] or self.hvac_state['cool']
-        if current_running and time_since_change < self.hvac_min_run_time:
-            logger.debug(f"HVAC minimum run time not met ({time_since_change:.0f}s < "
-                        f"{self.hvac_min_run_time}s)")
-            return
-        
-        if not current_running and time_since_change < self.hvac_min_rest_time:
-            logger.debug(f"HVAC minimum rest time not met ({time_since_change:.0f}s < "
-                        f"{self.hvac_min_rest_time}s)")
+            self._deactivate_all_stages(fan=fan_state)
             return
         
         # Heating mode
         if self.hvac_mode in ['heat', 'auto']:
-            if system_temp < self.target_temp_heat - self.hysteresis:
-                fan_state = get_fan_state(True)
-                self._set_hvac_state(heat=True, cool=False, fan=fan_state)
-                # Enable secondary heat if temperature is very low (3°C below target)
-                if system_temp < self.target_temp_heat - 1.67:  # ~3°F in Celsius
-                    self.hvac_state['heat2'] = True
-                    if GPIO:
-                        GPIO.output(self.gpio_relay_heat2, GPIO.HIGH)
-            elif system_temp > self.target_temp_heat + self.hysteresis:
-                fan_state = get_fan_state(False)
-                self._set_hvac_state(heat=False, cool=False, fan=fan_state, heat2=False)
+            temp_below_target = self.target_temp_heat - system_temp
+            
+            if temp_below_target > self.hysteresis:
+                # Need heating - determine which stages to activate
+                self._control_heating_stages(temp_below_target, get_fan_state(True))
+            elif temp_below_target < -self.hysteresis:
+                # Too hot - turn off heating
+                self._deactivate_heating_stages(get_fan_state(False))
         
-        # Cooling mode
+        # Cooling mode  
         if self.hvac_mode in ['cool', 'auto']:
-            if system_temp > self.target_temp_cool + self.hysteresis:
-                fan_state = get_fan_state(True)
-                self._set_hvac_state(heat=False, cool=True, fan=fan_state)
-            elif system_temp < self.target_temp_cool - self.hysteresis:
-                fan_state = get_fan_state(False)
-                self._set_hvac_state(heat=False, cool=False, fan=fan_state)
+            temp_above_target = system_temp - self.target_temp_cool
+            
+            if temp_above_target > self.hysteresis:
+                # Need cooling - determine which stages to activate
+                self._control_cooling_stages(temp_above_target, get_fan_state(True))
+            elif temp_above_target < -self.hysteresis:
+                # Too cool - turn off cooling
+                self._deactivate_cooling_stages(get_fan_state(False))
     
-    def _set_hvac_state(self, heat: bool, cool: bool, fan: bool, heat2: bool = False) -> None:
-        """Set HVAC relay states"""
-        # Safety: Never activate heat and cool simultaneously
-        if heat and cool:
-            logger.error("Safety violation: Attempted to activate heat and cool simultaneously!")
+    def _control_heating_stages(self, temp_deficit: float, fan_state: bool) -> None:
+        """Activate heating stages based on temperature deficit"""
+        stages_to_activate = []
+        
+        # Determine which stages should be active based on temperature deficit
+        for stage in self.heating_stages:
+            if temp_deficit >= stage['temp_offset']:
+                stages_to_activate.append(stage['stage_number'])
+        
+        # Ensure at least stage 1 is active if we need heat
+        if not stages_to_activate and self.heating_stages:
+            stages_to_activate.append(1)
+        
+        # Update stage states
+        self._update_stages('heat', stages_to_activate, fan_state)
+    
+    def _control_cooling_stages(self, temp_excess: float, fan_state: bool) -> None:
+        """Activate cooling stages based on temperature excess"""
+        stages_to_activate = []
+        
+        # Determine which stages should be active based on temperature excess
+        for stage in self.cooling_stages:
+            if temp_excess >= stage['temp_offset']:
+                stages_to_activate.append(stage['stage_number'])
+        
+        # Ensure at least stage 1 is active if we need cooling
+        if not stages_to_activate and self.cooling_stages:
+            stages_to_activate.append(1)
+        
+        # Update stage states
+        self._update_stages('cool', stages_to_activate, fan_state)
+    
+    def _deactivate_heating_stages(self, fan_state: bool) -> None:
+        """Deactivate all heating stages"""
+        self._update_stages('heat', [], fan_state)
+    
+    def _deactivate_cooling_stages(self, fan_state: bool) -> None:
+        """Deactivate all cooling stages"""
+        self._update_stages('cool', [], fan_state)
+    
+    def _deactivate_all_stages(self, fan: bool) -> None:
+        """Deactivate all HVAC stages"""
+        self._update_stages('heat', [], fan)
+        self._update_stages('cool', [], fan)
+    
+    def _update_stages(self, stage_type: str, stages_to_activate: List[int], fan_state: bool) -> None:
+        """Update stage relay states with timing protection
+        
+        Args:
+            stage_type: 'heat' or 'cool'
+            stages_to_activate: List of stage numbers that should be active
+            fan_state: Desired fan state
+        """
+        now = datetime.now()
+        
+        # Get current active stages and stage list
+        if stage_type == 'heat':
+            current_active = self.active_heat_stages.copy()
+            stage_list = self.heating_stages
+        else:  # cool
+            current_active = self.active_cool_stages.copy()
+            stage_list = self.cooling_stages
+        
+        # Check minimum run/rest time for any currently active stage
+        for stage_num in current_active:
+            stage_key = (stage_type, stage_num)
+            if stage_key in self.last_stage_changes:
+                time_since_change = (now - self.last_stage_changes[stage_key]).total_seconds()
+                stage = next((s for s in stage_list if s['stage_number'] == stage_num), None)
+                if stage and time_since_change < stage.get('min_run_time', 300):
+                    logger.debug(f\"{stage_type} stage {stage_num} minimum run time not met \"
+                               f\"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)\")
+                    return  # Don't change anything yet
+        
+        # Check minimum rest time for stages we want to activate
+        for stage_num in stages_to_activate:
+            if stage_num not in current_active:
+                stage_key = (stage_type, stage_num)
+                if stage_key in self.last_stage_changes:
+                    time_since_change = (now - self.last_stage_changes[stage_key]).total_seconds()
+                    stage = next((s for s in stage_list if s['stage_number'] == stage_num), None)
+                    if stage and time_since_change < stage.get('min_run_time', 300):
+                        logger.debug(f\"{stage_type} stage {stage_num} minimum rest time not met \"
+                                   f\"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)\")
+                        return  # Don't activate yet
+        
+        # Safety check: don't activate both heat and cool
+        if stage_type == 'heat' and stages_to_activate and self.active_cool_stages:
+            logger.error(\"Safety violation: Attempted to activate heat while cooling is active!\")
+            return
+        if stage_type == 'cool' and stages_to_activate and self.active_heat_stages:
+            logger.error(\"Safety violation: Attempted to activate cool while heating is active!\")
             return
         
-        # If manual fan mode is active (continuous), force fan to stay on
-        # If manual_fan_mode is False (auto), use the requested fan state from control logic
-        if self.manual_fan_mode:
-            fan = True  # Force fan ON in manual continuous mode
-        
-        # Check if state is changing
-        new_state = {'heat': heat, 'cool': cool, 'fan': fan, 'heat2': heat2}
-        if new_state == self.hvac_state:
+        # Check if anything is actually changing
+        if stages_to_activate == current_active and fan_state == self.hvac_state['fan']:
             return
         
-        # Update relays
+        # Update GPIO pins for changed stages
         if GPIO:
-            GPIO.output(self.gpio_relay_heat, GPIO.HIGH if heat else GPIO.LOW)
-            GPIO.output(self.gpio_relay_cool, GPIO.HIGH if cool else GPIO.LOW)
-            GPIO.output(self.gpio_relay_fan, GPIO.HIGH if fan else GPIO.LOW)
-            GPIO.output(self.gpio_relay_heat2, GPIO.HIGH if heat2 else GPIO.LOW)
+            for stage in stage_list:
+                stage_num = stage['stage_number']
+                should_be_active = stage_num in stages_to_activate
+                is_currently_active = stage_num in current_active
+                
+                if should_be_active != is_currently_active:
+                    GPIO.output(stage['gpio_pin'], GPIO.HIGH if should_be_active else GPIO.LOW)
+                    self.last_stage_changes[(stage_type, stage_num)] = now
+                    logger.info(f\"{stage_type.title()} Stage {stage_num} ({'ON' if should_be_active else 'OFF'}): \"
+                               f\"GPIO {stage['gpio_pin']}\")
+            
+            # Update fan
+            GPIO.output(self.fan_gpio_pin, GPIO.HIGH if fan_state else GPIO.LOW)
         
-        self.hvac_state = new_state
-        self.last_hvac_change = datetime.now()
+        # Update active stage lists
+        if stage_type == 'heat':
+            self.active_heat_stages = stages_to_activate
+        else:
+            self.active_cool_stages = stages_to_activate
         
-        status = []
-        if heat: status.append("HEAT")
-        if cool: status.append("COOL")
-        if fan: status.append("FAN")
-        if heat2: status.append("HEAT2")
-        logger.info(f"HVAC state changed: {' + '.join(status) if status else 'OFF'}")
+        # Update backwards-compatible hvac_state for web interface
+        self.hvac_state['heat'] = len(self.active_heat_stages) > 0
+        self.hvac_state['cool'] = len(self.active_cool_stages) > 0
+        self.hvac_state['fan'] = fan_state
+        self.hvac_state['heat2'] = 2 in self.active_heat_stages  # Backwards compat
+        self.last_hvac_change = now
+        
+        # Log state change
+        active_desc = []
+        if self.active_heat_stages:
+            active_desc.append(f\"HEAT{self.active_heat_stages}\")
+        if self.active_cool_stages:
+            active_desc.append(f\"COOL{self.active_cool_stages}\")
+        if fan_state:
+            active_desc.append(\"FAN\")
+        logger.info(f\"HVAC state: {' + '.join(active_desc) if active_desc else 'OFF'}\")
     
     def update_sensor_history(self, readings: List[SensorReading]) -> None:
         """Update sensor reading history"""
@@ -629,9 +796,28 @@ class ThermostatController:
         logger.debug(f"Logged {len(readings)} sensor readings to history")
     
     def _log_hvac_history(self, system_temp: Optional[float]) -> None:
-        """Log HVAC state to database"""
+        """Log HVAC state to database with active stage information"""
         if not self.db:
             return
+        
+        # Build active stages list for logging
+        active_stages_list = []
+        for stage_num in self.active_heat_stages:
+            stage = next((s for s in self.heating_stages if s['stage_number'] == stage_num), None)
+            if stage:
+                active_stages_list.append({
+                    'type': 'heat',
+                    'number': stage_num,
+                    'gpio_pin': stage['gpio_pin']
+                })
+        for stage_num in self.active_cool_stages:
+            stage = next((s for s in self.cooling_stages if s['stage_number'] == stage_num), None)
+            if stage:
+                active_stages_list.append({
+                    'type': 'cool',
+                    'number': stage_num,
+                    'gpio_pin': stage['gpio_pin']
+                })
         
         self.db.log_hvac_state(
             system_temp=system_temp,
@@ -642,7 +828,8 @@ class ThermostatController:
             heat=self.hvac_state['heat'],
             cool=self.hvac_state['cool'],
             fan=self.hvac_state['fan'],
-            heat2=self.hvac_state['heat2']
+            heat2=self.hvac_state['heat2'],
+            active_stages=active_stages_list if active_stages_list else None
         )
     
     def handle_control_command(self, command: str, params: Dict) -> Dict:

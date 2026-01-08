@@ -7,7 +7,7 @@ A custom thermostat system using Raspberry Pi 3B with multiple temperature senso
 This thermostat system allows you to:
 - Monitor temperature across multiple rooms
 - Intelligently ignore sensors near active heat sources (fireplace)
-- Control standard HVAC systems (heating, cooling, secondary heat stage)
+- Control multi-stage HVAC systems (N+1 heating/cooling stages)
 - **Control remotely via web interface** (adjust temps, switch modes, control fan)
 - Display information on an e-ink screen (optional)
 - Operate completely offline
@@ -534,6 +534,7 @@ sudo journalctl -u thermostat.service -n 100
 - [docs/SENSOR_MOUNTING.md](docs/SENSOR_MOUNTING.md) - Sensor installation guide
 - [docs/WEB_INTERFACE.md](docs/WEB_INTERFACE.md) - Web dashboard setup and usage
 - [docs/CONTROL_FEATURES.md](docs/CONTROL_FEATURES.md) - **Remote control guide**
+- [docs/MULTI_STAGE_HVAC.md](docs/MULTI_STAGE_HVAC.md) - **Multi-stage HVAC configuration**
 - [docs/HVAC_HISTORY_SCHEMA_FIX.md](docs/HVAC_HISTORY_SCHEMA_FIX.md) - Database schema improvements
 - [docs/TESTING.md](docs/TESTING.md) - Testing procedures
 - [docs/STRUCTURE.md](docs/STRUCTURE.md) - Project structure reference

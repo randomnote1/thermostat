@@ -107,6 +107,23 @@ class ThermostatDatabase:
                 )
             ''')
             
+            # HVAC Stages - configurable heating/cooling stages
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS hvac_stages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stage_type TEXT NOT NULL,
+                    stage_number INTEGER NOT NULL,
+                    gpio_pin INTEGER NOT NULL,
+                    temp_offset REAL NOT NULL,
+                    min_run_time INTEGER DEFAULT 300,
+                    enabled INTEGER DEFAULT 1,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(stage_type, stage_number)
+                )
+            ''')
+            
             # HVAC history - track when HVAC runs
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS hvac_history (
@@ -120,6 +137,7 @@ class ThermostatDatabase:
                     cool_active INTEGER,
                     fan_active INTEGER,
                     heat2_active INTEGER,
+                    active_stages TEXT,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -144,6 +162,10 @@ class ThermostatDatabase:
             cursor.execute('''
                 CREATE INDEX IF NOT EXISTS idx_schedules_enabled 
                 ON schedules(enabled, days_of_week, time)
+            ''')
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_hvac_stages_type_enabled 
+                ON hvac_stages(stage_type, enabled, stage_number)
             ''')
             
             logger.info(f"Database initialized at {self.db_path}")
@@ -220,6 +242,41 @@ class ThermostatDatabase:
                 except Exception as e:
                     logger.error(f"Schema migration failed: {e}")
                     raise
+            
+            # Migration: Add active_stages column to hvac_history
+            cursor.execute("PRAGMA table_info(hvac_history)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'active_stages' not in columns:
+                logger.info("Adding active_stages column to hvac_history...")
+                cursor.execute('ALTER TABLE hvac_history ADD COLUMN active_stages TEXT')
+                logger.info("✓ active_stages column added")
+            
+            # Migration: Create default heating stages from config if hvac_stages is empty
+            cursor.execute('SELECT COUNT(*) FROM hvac_stages')
+            stage_count = cursor.fetchone()[0]
+            
+            if stage_count == 0:
+                logger.info("Initializing default HVAC stages...")
+                # Stage 1: Primary heat (always available)
+                cursor.execute('''
+                    INSERT INTO hvac_stages 
+                        (stage_type, stage_number, gpio_pin, temp_offset, min_run_time, enabled, description)
+                    VALUES ('heat', 1, 17, 0.28, 300, 1, 'Primary heating')
+                ''')
+                # Stage 2: Secondary/auxiliary heat (3°F below target)
+                cursor.execute('''
+                    INSERT INTO hvac_stages 
+                        (stage_type, stage_number, gpio_pin, temp_offset, min_run_time, enabled, description)
+                    VALUES ('heat', 2, 23, 1.67, 300, 1, 'Secondary/auxiliary heating')
+                ''')
+                # Stage 1: Primary cool (always available)
+                cursor.execute('''
+                    INSERT INTO hvac_stages 
+                        (stage_type, stage_number, gpio_pin, temp_offset, min_run_time, enabled, description)
+                    VALUES ('cool', 1, 27, 0.28, 300, 1, 'Primary cooling')
+                ''')
+                logger.info("✓ Default HVAC stages created")
     
     # ==================== SETTINGS ====================
     
@@ -360,6 +417,134 @@ class ThermostatDatabase:
             
             if cursor.rowcount > 0:
                 logger.debug(f"Sensor deleted: {sensor_id}")
+                return True
+            return False
+    
+    # ==================== HVAC STAGES ====================
+    
+    def get_hvac_stages(self, stage_type: Optional[str] = None, enabled_only: bool = True) -> List[Dict]:
+        """Get HVAC stage configurations
+        
+        Args:
+            stage_type: Filter by 'heat' or 'cool', or None for all
+            enabled_only: Only return enabled stages
+        
+        Returns:
+            List of stage configurations ordered by stage_number
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if stage_type and enabled_only:
+                cursor.execute('''
+                    SELECT * FROM hvac_stages 
+                    WHERE stage_type = ? AND enabled = 1 
+                    ORDER BY stage_number
+                ''', (stage_type,))
+            elif stage_type:
+                cursor.execute('''
+                    SELECT * FROM hvac_stages 
+                    WHERE stage_type = ? 
+                    ORDER BY stage_number
+                ''', (stage_type,))
+            elif enabled_only:
+                cursor.execute('''
+                    SELECT * FROM hvac_stages 
+                    WHERE enabled = 1 
+                    ORDER BY stage_type, stage_number
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT * FROM hvac_stages 
+                    ORDER BY stage_type, stage_number
+                ''')
+            
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def add_hvac_stage(self, stage_type: str, stage_number: int, gpio_pin: int, 
+                       temp_offset: float, min_run_time: int = 300, 
+                       enabled: bool = True, description: str = '') -> int:
+        """Add a new HVAC stage
+        
+        Args:
+            stage_type: 'heat' or 'cool'
+            stage_number: Stage number (1, 2, 3, etc.)
+            gpio_pin: BCM GPIO pin number
+            temp_offset: Temperature offset from target (in Celsius) to activate this stage
+            min_run_time: Minimum run time in seconds
+            enabled: Whether stage is enabled
+            description: Optional description
+        
+        Returns:
+            Stage ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO hvac_stages 
+                    (stage_type, stage_number, gpio_pin, temp_offset, 
+                     min_run_time, enabled, description)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (stage_type, stage_number, gpio_pin, temp_offset, 
+                  min_run_time, 1 if enabled else 0, description))
+            
+            stage_id = cursor.lastrowid
+            logger.info(f"Added {stage_type} stage {stage_number}: GPIO {gpio_pin}, "
+                       f"offset {temp_offset}°C")
+            return stage_id
+    
+    def update_hvac_stage(self, stage_id: int, **kwargs) -> bool:
+        """Update an HVAC stage configuration
+        
+        Args:
+            stage_id: Stage ID to update
+            **kwargs: Fields to update (gpio_pin, temp_offset, min_run_time, enabled, description)
+        
+        Returns:
+            True if updated, False if not found
+        """
+        allowed_fields = ['gpio_pin', 'temp_offset', 'min_run_time', 'enabled', 'description']
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            updates = []
+            params = []
+            
+            for field, value in kwargs.items():
+                if field in allowed_fields:
+                    updates.append(f'{field} = ?')
+                    params.append(value)
+            
+            if not updates:
+                return False
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            params.append(stage_id)
+            
+            query = f"UPDATE hvac_stages SET {', '.join(updates)} WHERE id = ?"
+            cursor.execute(query, params)
+            
+            if cursor.rowcount > 0:
+                logger.debug(f"HVAC stage {stage_id} updated")
+                return True
+            return False
+    
+    def delete_hvac_stage(self, stage_id: int) -> bool:
+        """Delete an HVAC stage
+        
+        Args:
+            stage_id: Stage ID to delete
+        
+        Returns:
+            True if deleted, False if not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM hvac_stages WHERE id = ?', (stage_id,))
+            
+            if cursor.rowcount > 0:
+                logger.info(f"HVAC stage {stage_id} deleted")
                 return True
             return False
     
@@ -562,8 +747,9 @@ class ThermostatDatabase:
     
     def log_hvac_state(self, system_temp: Optional[float], 
                       target_temp_heat: Optional[float], target_temp_cool: Optional[float],
-                      hvac_mode: str, fan_mode: str, heat: bool, cool: bool, fan: bool, heat2: bool) -> None:
-        """Log HVAC state with both target temperatures
+                      hvac_mode: str, fan_mode: str, heat: bool, cool: bool, fan: bool, 
+                      heat2: bool = False, active_stages: Optional[List[Dict]] = None) -> None:
+        """Log HVAC state with both target temperatures and active stages
         
         Args:
             system_temp: Current system temperature
@@ -571,20 +757,29 @@ class ThermostatDatabase:
             target_temp_cool: Cooling setpoint
             hvac_mode: HVAC mode (heat/cool/auto/off)
             fan_mode: Fan mode (auto/on)
-            heat: Heat relay state
-            cool: Cool relay state
+            heat: Heat relay state (backwards compat)
+            cool: Cool relay state (backwards compat)
             fan: Fan relay state
-            heat2: Heat2 relay state (aux/emergency heat)
+            heat2: Heat2 relay state (backwards compat - aux/emergency heat)
+            active_stages: List of active stage dicts with 'type', 'number', 'gpio_pin'
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Convert active_stages to JSON string for storage
+            stages_json = None
+            if active_stages:
+                import json
+                stages_json = json.dumps(active_stages)
+            
             cursor.execute('''
                 INSERT INTO hvac_history (system_temp, target_temp_heat, target_temp_cool, 
                                         hvac_mode, fan_mode, heat_active, cool_active, 
-                                        fan_active, heat2_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        fan_active, heat2_active, active_stages)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (system_temp, target_temp_heat, target_temp_cool, hvac_mode, fan_mode,
-                  1 if heat else 0, 1 if cool else 0, 1 if fan else 0, 1 if heat2 else 0))
+                  1 if heat else 0, 1 if cool else 0, 1 if fan else 0, 1 if heat2 else 0,
+                  stages_json))
     
     def get_hvac_history(self, hours: int = 24, limit: int = 1000) -> List[Dict]:
         """Get HVAC history"""
