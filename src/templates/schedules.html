@@ -150,6 +150,8 @@
         .form-group input[type="time"] {
             min-height: 40px;
             color-scheme: light dark;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .checkbox-group {
@@ -268,12 +270,19 @@
                 width: calc(100% - 40px);
                 max-width: calc(100% - 40px);
                 -webkit-overflow-scrolling: touch;
-                overflow: visible;
+                overflow-x: hidden;
+                overflow-y: visible;
             }
 
             .form-group {
                 position: relative;
                 z-index: 1;
+                max-width: 100%;
+            }
+
+            .form-group input[type="time"] {
+                width: 100%;
+                max-width: 100%;
             }
         }
     </style>
