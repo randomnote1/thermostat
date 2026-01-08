@@ -198,7 +198,8 @@ class TestHVACControlEdgeCases(unittest.TestCase):
         self.controller.hvac_mode = 'auto'
         
         # Comfortable temperature - between heat and cool setpoints
-        self.controller.control_hvac(71.0)
+        # 71°F = 21.67°C (between 68°F=20°C and 74°F=23.33°C)
+        self.controller.control_hvac(21.67)
         
         self.assertFalse(self.controller.hvac_state['heat'])
         self.assertFalse(self.controller.hvac_state['cool'])

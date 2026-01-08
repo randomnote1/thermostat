@@ -436,6 +436,15 @@ class ThermostatController:
             self._deactivate_all_stages(fan=fan_state)
             return
         
+        # Check global minimum rest time (don't turn on HVAC if recently turned off)
+        now = datetime.now()
+        time_since_last_change = (now - self.last_hvac_change).total_seconds()
+        hvac_currently_active = len(self.active_heat_stages) > 0 or len(self.active_cool_stages) > 0
+        
+        if not hvac_currently_active and time_since_last_change < self.hvac_min_rest_time:
+            logger.debug(f"HVAC minimum rest time not met ({time_since_last_change:.0f}s < {self.hvac_min_rest_time}s)")
+            return
+        
         # Heating mode
         if self.hvac_mode in ['heat', 'auto']:
             temp_below_target = self.target_temp_heat - system_temp
@@ -446,6 +455,14 @@ class ThermostatController:
             elif temp_below_target < -self.hysteresis:
                 # Too hot - turn off heating
                 self._deactivate_heating_stages(get_fan_state(False))
+            else:
+                # Within hysteresis - maintain current state or turn off if just reached comfortable
+                if self.active_heat_stages:
+                    # Don't turn off immediately - hysteresis should keep it running
+                    pass
+                else:
+                    # Not running - ensure it stays off
+                    self._deactivate_heating_stages(get_fan_state(False))
         
         # Cooling mode  
         if self.hvac_mode in ['cool', 'auto']:
@@ -457,6 +474,14 @@ class ThermostatController:
             elif temp_above_target < -self.hysteresis:
                 # Too cool - turn off cooling
                 self._deactivate_cooling_stages(get_fan_state(False))
+            else:
+                # Within hysteresis - maintain current state or turn off if just reached comfortable
+                if self.active_cool_stages:
+                    # Don't turn off immediately - hysteresis should keep it running
+                    pass
+                else:
+                    # Not running - ensure it stays off
+                    self._deactivate_cooling_stages(get_fan_state(False))
     
     def _control_heating_stages(self, temp_deficit: float, fan_state: bool) -> None:
         """Activate heating stages based on temperature deficit"""
@@ -528,8 +553,8 @@ class ThermostatController:
                 time_since_change = (now - self.last_stage_changes[stage_key]).total_seconds()
                 stage = next((s for s in stage_list if s['stage_number'] == stage_num), None)
                 if stage and time_since_change < stage.get('min_run_time', 300):
-                    logger.debug(f\"{stage_type} stage {stage_num} minimum run time not met \"
-                               f\"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)\")
+                    logger.debug(f"{stage_type} stage {stage_num} minimum run time not met "
+                               f"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)")
                     return  # Don't change anything yet
         
         # Check minimum rest time for stages we want to activate
@@ -540,20 +565,27 @@ class ThermostatController:
                     time_since_change = (now - self.last_stage_changes[stage_key]).total_seconds()
                     stage = next((s for s in stage_list if s['stage_number'] == stage_num), None)
                     if stage and time_since_change < stage.get('min_run_time', 300):
-                        logger.debug(f\"{stage_type} stage {stage_num} minimum rest time not met \"
-                                   f\"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)\")
+                        logger.debug(f"{stage_type} stage {stage_num} minimum rest time not met "
+                                   f"({time_since_change:.0f}s < {stage.get('min_run_time', 300)}s)")
                         return  # Don't activate yet
         
         # Safety check: don't activate both heat and cool
         if stage_type == 'heat' and stages_to_activate and self.active_cool_stages:
-            logger.error(\"Safety violation: Attempted to activate heat while cooling is active!\")
+            logger.error("Safety violation: Attempted to activate heat while cooling is active!")
             return
         if stage_type == 'cool' and stages_to_activate and self.active_heat_stages:
-            logger.error(\"Safety violation: Attempted to activate cool while heating is active!\")
+            logger.error("Safety violation: Attempted to activate cool while heating is active!")
             return
         
-        # Check if anything is actually changing
-        if stages_to_activate == current_active and fan_state == self.hvac_state['fan']:
+        # Check if anything is actually changing (GPIO-wise)
+        gpio_changes = stages_to_activate != current_active or fan_state != self.hvac_state['fan']
+        
+        if not gpio_changes:
+            # Still update hvac_state to ensure consistency even if GPIO doesn't change
+            self.hvac_state['heat'] = len(self.active_heat_stages) > 0
+            self.hvac_state['cool'] = len(self.active_cool_stages) > 0
+            self.hvac_state['fan'] = fan_state
+            self.hvac_state['heat2'] = 2 in self.active_heat_stages
             return
         
         # Update GPIO pins for changed stages
@@ -566,8 +598,8 @@ class ThermostatController:
                 if should_be_active != is_currently_active:
                     GPIO.output(stage['gpio_pin'], GPIO.HIGH if should_be_active else GPIO.LOW)
                     self.last_stage_changes[(stage_type, stage_num)] = now
-                    logger.info(f\"{stage_type.title()} Stage {stage_num} ({'ON' if should_be_active else 'OFF'}): \"
-                               f\"GPIO {stage['gpio_pin']}\")
+                    logger.info(f"{stage_type.title()} Stage {stage_num} ({'ON' if should_be_active else 'OFF'}): "
+                               f"GPIO {stage['gpio_pin']}")
             
             # Update fan
             GPIO.output(self.fan_gpio_pin, GPIO.HIGH if fan_state else GPIO.LOW)
@@ -588,12 +620,12 @@ class ThermostatController:
         # Log state change
         active_desc = []
         if self.active_heat_stages:
-            active_desc.append(f\"HEAT{self.active_heat_stages}\")
+            active_desc.append(f"HEAT{self.active_heat_stages}")
         if self.active_cool_stages:
-            active_desc.append(f\"COOL{self.active_cool_stages}\")
+            active_desc.append(f"COOL{self.active_cool_stages}")
         if fan_state:
-            active_desc.append(\"FAN\")
-        logger.info(f\"HVAC state: {' + '.join(active_desc) if active_desc else 'OFF'}\")
+            active_desc.append("FAN")
+        logger.info(f"HVAC state: {' + '.join(active_desc) if active_desc else 'OFF'}")
     
     def update_sensor_history(self, readings: List[SensorReading]) -> None:
         """Update sensor reading history"""
@@ -724,11 +756,13 @@ class ThermostatController:
         """Clean up resources"""
         logger.info("Cleaning up...")
         if GPIO:
-            # Turn off all relays
-            GPIO.output(self.gpio_relay_heat, GPIO.LOW)
-            GPIO.output(self.gpio_relay_cool, GPIO.LOW)
-            GPIO.output(self.gpio_relay_fan, GPIO.LOW)
-            GPIO.output(self.gpio_relay_heat2, GPIO.LOW)
+            # Turn off all stage relays
+            for stage in self.heating_stages:
+                GPIO.output(stage['gpio_pin'], GPIO.LOW)
+            for stage in self.cooling_stages:
+                GPIO.output(stage['gpio_pin'], GPIO.LOW)
+            # Turn off fan
+            GPIO.output(self.fan_gpio_pin, GPIO.LOW)
             GPIO.cleanup()
         logger.info("Cleanup complete")
     
@@ -912,10 +946,10 @@ class ThermostatController:
                 # Set schedule hold
                 self._set_schedule_hold()
                 
-                # If mode is 'off', turn off all HVAC (respecting manual fan mode)
+                # If mode is 'off', turn off all HVAC
                 if mode == 'off':
-                    fan_state = self.hvac_state['fan'] if self.manual_fan_mode else False
-                    self._set_hvac_state(heat=False, cool=False, fan=fan_state)
+                    fan_state = False if not self.manual_fan_mode else True
+                    self._deactivate_all_stages(fan=fan_state)
                 
                 return {'success': True, 'message': f'HVAC mode set to {mode}'}
             
@@ -931,14 +965,18 @@ class ThermostatController:
                 
                 logger.info(f"Fan set to {'CONTINUOUS' if fan_on else 'AUTO'} (manual_fan_mode={self.manual_fan_mode})")
                 
-                # Use _set_hvac_state to properly update the fan with current HVAC state
-                # This ensures consistency and respects safety checks
-                self._set_hvac_state(
-                    heat=self.hvac_state['heat'],
-                    cool=self.hvac_state['cool'],
-                    fan=fan_on if self.manual_fan_mode else (self.hvac_state['heat'] or self.hvac_state['cool']),
-                    heat2=self.hvac_state['heat2']
-                )
+                # Determine desired fan state
+                # In manual mode, fan should be ON
+                # In auto mode, fan follows HVAC state (on if heating or cooling)
+                desired_fan_state = fan_on if self.manual_fan_mode else (len(self.active_heat_stages) > 0 or len(self.active_cool_stages) > 0)
+                
+                # Update fan state (both GPIO and internal state)
+                if GPIO:
+                    GPIO.output(self.fan_gpio_pin, GPIO.HIGH if desired_fan_state else GPIO.LOW)
+                    logger.info(f"Fan GPIO set to {'ON' if desired_fan_state else 'OFF'}")
+                
+                # Always update internal state regardless of GPIO availability
+                self.hvac_state['fan'] = desired_fan_state
                 
                 # Persist fan mode setting and log to both histories
                 if self.db:

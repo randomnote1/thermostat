@@ -222,12 +222,17 @@ class TestThermostatController(unittest.TestCase):
     def test_hvac_state_safety_heat_and_cool(self):
         """Test safety: never activate heat and cool simultaneously"""
         with patch('thermostat.GPIO'):
-            # Attempt to set both heat and cool
-            self.controller._set_hvac_state(heat=True, cool=True, fan=True)
+            # First activate cooling
+            self.controller.active_cool_stages = [1]
+            self.controller.hvac_state['cool'] = True
             
-            # Should not change state
-            self.assertFalse(self.controller.hvac_state['heat'])
-            self.assertFalse(self.controller.hvac_state['cool'])
+            # Attempt to activate heating while cooling is active
+            # This should be blocked by the safety check in _update_stages
+            self.controller._update_stages('heat', [1], False)
+            
+            # Heat should NOT be activated
+            self.assertFalse(len(self.controller.active_heat_stages) > 0)
+            self.assertTrue(self.controller.hvac_state['cool'])  # Cool should still be on
     
     def test_control_hvac_heating_mode_below_target(self):
         """Test HVAC activates heating when below target"""
@@ -866,8 +871,12 @@ class TestLogHistory(unittest.TestCase):
     
     def test_log_hvac_history(self):
         """Test logging HVAC state to database"""
-        # Set HVAC state
-        self.controller._set_hvac_state(heat=True, cool=False, fan=False, heat2=False)
+        # Set HVAC state using new stage-based approach
+        self.controller.hvac_state['heat'] = True
+        self.controller.hvac_state['cool'] = False
+        self.controller.hvac_state['fan'] = False
+        self.controller.active_heat_stages = [1]
+        self.controller.active_cool_stages = []
         
         # Log history
         self.controller._log_hvac_history(21.5)
@@ -882,7 +891,11 @@ class TestLogHistory(unittest.TestCase):
         """Test logging HVAC history with heat mode"""
         self.controller.hvac_mode = 'heat'
         self.controller.target_temp_heat = 20.0
-        self.controller._set_hvac_state(heat=True, cool=False, fan=True, heat2=False)
+        self.controller.hvac_state['heat'] = True
+        self.controller.hvac_state['cool'] = False
+        self.controller.hvac_state['fan'] = True
+        self.controller.active_heat_stages = [1]
+        self.controller.active_cool_stages = []
         
         # Log with system temp
         self.controller._log_hvac_history(19.5)
@@ -896,7 +909,11 @@ class TestLogHistory(unittest.TestCase):
         """Test logging HVAC history with cool mode"""
         self.controller.hvac_mode = 'cool'
         self.controller.target_temp_cool = 24.0
-        self.controller._set_hvac_state(heat=False, cool=True, fan=True, heat2=False)
+        self.controller.hvac_state['heat'] = False
+        self.controller.hvac_state['cool'] = True
+        self.controller.hvac_state['fan'] = True
+        self.controller.active_heat_stages = []
+        self.controller.active_cool_stages = [1]
         
         # Log with system temp
         self.controller._log_hvac_history(25.0)
