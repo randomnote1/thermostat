@@ -273,17 +273,17 @@
                 -webkit-overflow-scrolling: touch;
                 overflow-x: hidden;
                 overflow-y: visible;
+                box-sizing: border-box;
             }
 
             .form-group {
                 position: relative;
                 z-index: 1;
                 max-width: 100%;
-                overflow: hidden;
             }
 
             .form-group input[type="time"] {
-                width: 100%;
+                width: calc(100% - 2px);
                 max-width: 100%;
                 padding: 8px;
                 font-size: 16px;
