@@ -251,6 +251,17 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        .stage-control-row .checkbox-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+
+        .stage-control-row .checkbox-label input[type="checkbox"] {
+            margin: 0;
+        }
+
         .stage-header {
             display: grid;
             grid-template-columns: 80px 70px 90px 110px 120px 1fr 80px 100px;
@@ -261,6 +272,10 @@
             border-bottom: 2px solid var(--border-color);
             margin-bottom: 10px;
             font-size: 0.85em;
+        }
+
+        .stage-header div:nth-child(7) {
+            text-align: center;
         }
 
         .delete-button {
