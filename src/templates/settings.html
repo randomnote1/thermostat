@@ -947,7 +947,17 @@
                     alert('Invalid stage number. Must be a positive integer.');
                 }
                 return;
-            }Prompt = prompt(`Enter temperature offset in ${getUnitSymbol(currentUnits)} (e.g., 0.5 for activation when ${currentUnits === 'F' ? '0.5°F' : '0.5°C'} above target):`);
+            }
+            
+            const gpioPin = prompt('Enter GPIO pin number:');
+            if (!gpioPin || isNaN(gpioPin) || gpioPin < 0) {
+                if (gpioPin !== null) {
+                    alert('Invalid GPIO pin. Must be a non-negative integer.');
+                }
+                return;
+            }
+            
+            const tempOffsetPrompt = prompt(`Enter temperature offset in ${getUnitSymbol(currentUnits)} (e.g., 0.5 for activation when ${currentUnits === 'F' ? '0.5°F' : '0.5°C'} above target):`);
             if (!tempOffsetPrompt || isNaN(tempOffsetPrompt)) {
                 if (tempOffsetPrompt !== null) {
                     alert('Invalid temperature offset. Must be a number.');
@@ -960,17 +970,7 @@
             
             const description = prompt('Enter description (optional):') || '';
             
-            addStage(stageType.toLowerCase(), parseInt(stageNumber), parseInt(gpioPin), tempOffsetCelsius
-            if (!tempOffset || isNaN(tempOffset)) {
-                if (tempOffset !== null) {
-                    alert('Invalid temperature offset. Must be a number.');
-                }
-                return;
-            }
-            
-            const description = prompt('Enter description (optional):') || '';
-            
-            addStage(stageType.toLowerCase(), parseInt(stageNumber), parseInt(gpioPin), parseFloat(tempOffset), description);
+            addStage(stageType.toLowerCase(), parseInt(stageNumber), parseInt(gpioPin), tempOffsetCelsius, description);
         }
 
         // Add new stage
