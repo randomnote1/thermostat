@@ -551,6 +551,10 @@
             return date.toLocaleString();
         }
 
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
         async function loadDatabaseStats() {
             try {
                 const response = await fetch('/api/database/stats');
@@ -562,19 +566,19 @@
                 const statsGrid = document.getElementById('stats-grid');
                 statsGrid.innerHTML = `
                     <div class="stat-box">
-                        <div class="stat-value">${stats.sensor_history_count || 0}</div>
+                        <div class="stat-value">${formatNumber(stats.sensor_history_count || 0)}</div>
                         <div class="stat-label">Sensor Readings</div>
                     </div>
                     <div class="stat-box">
-                        <div class="stat-value">${stats.hvac_history_count || 0}</div>
+                        <div class="stat-value">${formatNumber(stats.hvac_history_count || 0)}</div>
                         <div class="stat-label">HVAC Records</div>
                     </div>
                     <div class="stat-box">
-                        <div class="stat-value">${stats.setting_history_count || 0}</div>
+                        <div class="stat-value">${formatNumber(stats.setting_history_count || 0)}</div>
                         <div class="stat-label">Setting Changes</div>
                     </div>
                     <div class="stat-box">
-                        <div class="stat-value">${stats.schedules_count || 0}</div>
+                        <div class="stat-value">${formatNumber(stats.schedules_count || 0)}</div>
                         <div class="stat-label">Schedules</div>
                     </div>
                     <div class="stat-box">
