@@ -63,7 +63,7 @@
 
         .sensor-header-row {
             display: grid;
-            grid-template-columns: 1fr 300px 80px;
+            grid-template-columns: 1fr 300px 100px 120px;
             gap: 10px;
             padding: 12px;
             font-weight: 600;
@@ -73,13 +73,13 @@
             font-size: 0.85em;
         }
 
-        .sensor-header-row div:last-child {
+        .sensor-header-row div:nth-child(3) {
             text-align: center;
         }
 
         .sensor-card {
             display: grid;
-            grid-template-columns: 1fr 300px 80px;
+            grid-template-columns: 1fr 300px 100px 120px;
             gap: 10px;
             align-items: center;
             padding: 15px 12px;
@@ -117,6 +117,10 @@
             align-items: center;
         }
 
+        .sensor-input-section label {
+            display: none;
+        }
+
         .sensor-input-section input[type="text"] {
             width: 100%;
             padding: 8px 12px;
@@ -133,7 +137,18 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .sensor-enabled-section {
+        .
+
+        .sensor-save-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .sensor-save-section .save-button {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }sensor-enabled-section {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -581,6 +596,7 @@
                 flex-direction: column;
                 gap: 12px;
                 padding: 15px;
+                display: block !important;
                 border: 1px solid var(--border-color);
             }
 
@@ -595,7 +611,11 @@
                 gap: 5px;
             }
 
-            .sensor-input-section label {
+            .
+
+            .sensor-save-section .save-button {
+                width: 100%;
+            }sensor-input-section label {
                 font-weight: 600;
                 font-size: 0.85em;
                 color: var(--text-secondary);
@@ -963,7 +983,8 @@
 
         // Render sensor list
         function renderSensors() {
-            const container = document.getElementById('sensor-list');
+            cons    <div>Actions</div>
+                t container = document.getElementById('sensor-list');
             
             if (currentSensors.length === 0) {
                 container.innerHTML = `
@@ -992,13 +1013,6 @@
                     </div>
                     <div class="sensor-input-section">
                         <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
-                        <input 
-                            type="text" 
-                            id="name-${escapeHtml(sensor.sensor_id)}"
-                            value="${escapeHtml(sensor.name || '')}"
-                            placeholder="e.g., Living Room"
-                            data-sensor-id="${escapeHtml(sensor.sensor_id)}"
-                            onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
                         >
                     </div>
                     <div class="sensor-enabled-section">
@@ -1008,20 +1022,25 @@
                                 id="enabled-${escapeHtml(sensor.sensor_id)}"
                                 ${sensor.enabled ? 'checked' : ''}
                                 data-sensor-id="${escapeHtml(sensor.sensor_id)}"
-                                onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
                             >
                             <span>Enabled</span>
                         </label>
                     </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        // Save sensor configuration (auto-save on change)
-        async function saveSensorField(sensorId) {
+                    <div class="sensor-save-section">
+                        <button class="save-button" onclick="saveSensor('${escapeHtml(sensor.sensor_id)}')">
+                            Save
+                        </button id="enabled-${escapeHtml(sensor.sensor_id)}"
+                                ${sensor.enabled ? 'checked' : ''}
+                                data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                                onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
+                            >
+                            <span(sensorId) {
             const nameInput = document.getElementById(`name-${sensorId}`);
             const enabledInput = document.getElementById(`enabled-${sensorId}`);
+            
+            const saveButton = event.target;
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
             
             try {
                 const response = await fetch(`/api/sensors/config/${encodeURIComponent(sensorId)}`, {
@@ -1039,8 +1058,22 @@
                     throw new Error(error.error || 'Failed to save sensor');
                 }
                 
+                showMessage(`Sensor "${nameInput.value || sensorId}" saved successfully`);
+                
                 // Update local data
                 const sensor = currentSensors.find(s => s.sensor_id === sensorId);
+                if (sensor) {
+                    sensor.name = nameInput.value;
+                    sensor.enabled = enabledInput.checked;
+                    sensor.monitored = enabledInput.checked;
+                }
+                
+            } catch (error) {
+                console.error('Error saving sensor:', error);
+                showMessage('Error saving sensor: ' + error.message, true);
+            } finally {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save'nsorId);
                 if (sensor) {
                     sensor.name = nameInput.value;
                     sensor.enabled = enabledInput.checked;
