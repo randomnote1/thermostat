@@ -573,6 +573,141 @@ def api_delete_sensor_config(sensor_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/hvac-stages', methods=['GET'])
+def api_get_hvac_stages():
+    """Get all HVAC stages"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        stages = database.get_hvac_stages()
+        return jsonify(stages)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/hvac-stages', methods=['POST'])
+def api_add_hvac_stage():
+    """Add a new HVAC stage"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required = ['stage_type', 'stage_number', 'gpio_pin', 'temp_offset']
+        for field in required:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Validate stage_type
+        if data['stage_type'] not in ['heat', 'cool']:
+            return jsonify({'error': 'stage_type must be "heat" or "cool"'}), 400
+        
+        # Validate numeric fields
+        try:
+            stage_number = int(data['stage_number'])
+            gpio_pin = int(data['gpio_pin'])
+            temp_offset = float(data['temp_offset'])
+            min_run_time = int(data.get('min_run_time', 300))
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid numeric value'}), 400
+        
+        # Add the stage
+        stage_id = database.add_hvac_stage(
+            stage_type=data['stage_type'],
+            stage_number=stage_number,
+            gpio_pin=gpio_pin,
+            temp_offset=temp_offset,
+            min_run_time=min_run_time,
+            enabled=data.get('enabled', True),
+            description=data.get('description', '')
+        )
+        
+        # Notify controller to reload stages
+        if control_callback:
+            control_callback('reload_stages', {})
+        
+        return jsonify({'success': True, 'stage_id': stage_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/hvac-stages/<int:stage_id>', methods=['PUT'])
+def api_update_hvac_stage(stage_id):
+    """Update an existing HVAC stage"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        data = request.get_json()
+        
+        # Validate stage_type if provided
+        if 'stage_type' in data and data['stage_type'] not in ['heat', 'cool']:
+            return jsonify({'error': 'stage_type must be "heat" or "cool"'}), 400
+        
+        # Validate numeric fields if provided
+        if 'stage_number' in data:
+            try:
+                data['stage_number'] = int(data['stage_number'])
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid stage_number'}), 400
+        
+        if 'gpio_pin' in data:
+            try:
+                data['gpio_pin'] = int(data['gpio_pin'])
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid gpio_pin'}), 400
+        
+        if 'temp_offset' in data:
+            try:
+                data['temp_offset'] = float(data['temp_offset'])
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid temp_offset'}), 400
+        
+        if 'min_run_time' in data:
+            try:
+                data['min_run_time'] = int(data['min_run_time'])
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Invalid min_run_time'}), 400
+        
+        # Update the stage
+        success = database.update_hvac_stage(stage_id, **data)
+        
+        if not success:
+            return jsonify({'error': 'Stage not found'}), 404
+        
+        # Notify controller to reload stages
+        if control_callback:
+            control_callback('reload_stages', {})
+        
+        return jsonify({'success': True, 'stage_id': stage_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/hvac-stages/<int:stage_id>', methods=['DELETE'])
+def api_delete_hvac_stage(stage_id):
+    """Delete an HVAC stage"""
+    if not database:
+        return jsonify({'error': 'Database not available'}), 503
+    
+    try:
+        success = database.delete_hvac_stage(stage_id)
+        
+        if not success:
+            return jsonify({'error': 'Stage not found'}), 404
+        
+        # Notify controller to reload stages
+        if control_callback:
+            control_callback('reload_stages', {})
+        
+        return jsonify({'success': True, 'stage_id': stage_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/database/stats', methods=['GET'])
 def api_database_stats():
     """Get database statistics"""

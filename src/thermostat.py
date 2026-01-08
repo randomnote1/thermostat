@@ -1010,6 +1010,15 @@ class ThermostatController:
                 else:
                     return {'success': False, 'error': 'Database not available'}
             
+            elif command == 'reload_stages':
+                # Reload HVAC stage configuration from database
+                if self.db:
+                    self._load_hvac_stages()
+                    logger.info("HVAC stage configuration reloaded from database")
+                    return {'success': True, 'message': 'HVAC stage configuration reloaded'}
+                else:
+                    return {'success': False, 'error': 'Database not available'}
+            
             else:
                 logger.warning(f"Unknown command: {command}")
                 return {'success': False, 'error': 'Unknown command'}
