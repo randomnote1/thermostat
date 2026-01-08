@@ -1036,8 +1036,7 @@
                 card.className = 'sensor-card';
                 card.innerHTML = `
                     <div class="sensor-name-section">
-                        <strong>Sensor ${escapeHtml(sensor.sensor_id.substring(0, 8))}</strong>
-                        <div class="sensor-id">ID: ${escapeHtml(sensor.sensor_id)}</div>
+                        <strong>${escapeHtml(sensor.sensor_id)}</strong>
                     </div>
                     <div class="sensor-input-section">
                         <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
