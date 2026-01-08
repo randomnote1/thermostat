@@ -568,7 +568,7 @@
                     <p><strong>Multi-Stage HVAC:</strong> Configure heating and cooling stages for complex HVAC systems</p>
                     <p><strong>Stage Number:</strong> Stages activate progressively (1, then 2, then 3, etc.) based on temperature need</p>
                     <p><strong>GPIO Pin:</strong> BCM pin number controlling the relay for this stage</p>
-                    <p><strong>Temp Offset:</strong> Temperature difference (°C) from target needed to activate this stage</p>
+                    <p><strong>Temp Offset:</strong> Temperature difference from target needed to activate this stage (stored internally as °C)</p>
                     <p><strong>Min Run Time:</strong> Minimum seconds stage must run before shutting off (prevents short-cycling)</p>
                 </div>
 
@@ -615,20 +615,22 @@
         let currentUnits = 'F';  // Default to Fahrenheit
 
         // Temperature conversion functions
+        // NOTE: These convert temperature DIFFERENCES (deltas), not absolute temperatures
+        // For deltas, we don't add/subtract the offset (32 for F, 273.15 for K)
         function celsiusToUser(tempC, units) {
             if (units === 'F') {
-                return (tempC * 9/5) + 32;
+                return tempC * 9/5;  // Just the ratio, no +32 for differences
             } else if (units === 'K') {
-                return tempC + 273.15;
+                return tempC;  // Kelvin and Celsius have same delta
             }
             return tempC;  // Already Celsius
         }
 
         function userToCelsius(temp, units) {
             if (units === 'F') {
-                return (temp - 32) * 5/9;
+                return temp * 5/9;  // Just the ratio, no -32 for differences
             } else if (units === 'K') {
-                return temp - 273.15;
+                return temp;  // Kelvin and Celsius have same delta
             }
             return temp;  // Already Celsius
         }
