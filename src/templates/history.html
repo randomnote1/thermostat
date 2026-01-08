@@ -187,8 +187,25 @@
             }
 
             th, td {
-                padding: 8px;
+                padding: 8px 4px;
+                font-size: 0.85em;
+            }
+
+            /* Make table more compact on mobile */
+            table {
                 font-size: 0.9em;
+            }
+
+            /* Reduce badge size on mobile */
+            .badge {
+                padding: 3px 6px;
+                font-size: 0.75em;
+            }
+
+            /* Make temperature column slightly wider, time column narrower */
+            th:first-child, td:first-child {
+                font-size: 0.8em;
+                padding-right: 2px;
             }
 
             .tabs {
