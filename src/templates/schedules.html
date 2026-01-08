@@ -152,6 +152,7 @@
             color-scheme: light dark;
             max-width: 100%;
             overflow: hidden;
+            -webkit-text-size-adjust: 100%;
         }
 
         .checkbox-group {
@@ -265,7 +266,7 @@
 
             .modal-content {
                 margin: 20px auto;
-                padding: 20px;
+                padding: 15px;
                 max-height: none;
                 width: calc(100% - 40px);
                 max-width: calc(100% - 40px);
@@ -278,11 +279,14 @@
                 position: relative;
                 z-index: 1;
                 max-width: 100%;
+                overflow: hidden;
             }
 
             .form-group input[type="time"] {
                 width: 100%;
                 max-width: 100%;
+                padding: 8px;
+                font-size: 16px;
             }
         }
     </style>
