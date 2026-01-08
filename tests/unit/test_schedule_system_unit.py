@@ -144,7 +144,16 @@ class TestScheduleSystem(unittest.TestCase):
         self.assertEqual(self.controller.target_temp_heat, 72.0)
     
     def test_set_schedule_hold(self):
-        """Test setting schedule hold"""
+        """Test setting schedule hold when schedules exist"""
+        # Create a schedule first
+        now = datetime.now()
+        time_str = now.strftime('%H:%M')
+        weekday = str(now.weekday())
+        
+        self.controller.db.create_schedule(
+            "Test Schedule", weekday, time_str, 70.0, None, "heat"
+        )
+        
         before = datetime.now()
         self.controller._set_schedule_hold()
         after = datetime.now()
@@ -401,7 +410,16 @@ class TestWebControlWithScheduleHold(unittest.TestCase):
             os.unlink(self.db_path)
     
     def test_set_temperature_triggers_hold(self):
-        """Test setting temperature via web triggers schedule hold"""
+        """Test setting temperature via web triggers schedule hold when schedules exist"""
+        # Create a schedule first
+        now = datetime.now()
+        time_str = now.strftime('%H:%M')
+        weekday = str(now.weekday())
+        
+        self.controller.db.create_schedule(
+            "Test Schedule", weekday, time_str, 20.0, None, "heat"
+        )
+        
         result = self.controller.handle_control_command(
             'set_temperature',
             {'type': 'heat', 'temperature': 22}  # Celsius
@@ -411,7 +429,16 @@ class TestWebControlWithScheduleHold(unittest.TestCase):
         self.assertIsNotNone(self.controller.schedule_hold_until)
     
     def test_set_mode_triggers_hold(self):
-        """Test setting mode via web triggers schedule hold"""
+        """Test setting mode via web triggers schedule hold when schedules exist"""
+        # Create a schedule first
+        now = datetime.now()
+        time_str = now.strftime('%H:%M')
+        weekday = str(now.weekday())
+        
+        self.controller.db.create_schedule(
+            "Test Schedule", weekday, time_str, 20.0, None, "heat"
+        )
+        
         result = self.controller.handle_control_command(
             'set_mode',
             {'mode': 'cool'}

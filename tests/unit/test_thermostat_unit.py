@@ -373,7 +373,16 @@ class TestThermostatController(unittest.TestCase):
         self.assertFalse(status['manual_fan_mode'])  # Default is False
     
     def test_set_schedule_hold(self):
-        """Test setting schedule hold after manual changes"""
+        """Test setting schedule hold after manual changes when schedules exist"""
+        # Create a schedule first
+        if self.controller.db:
+            self.controller.db.create_schedule(
+                name="Test Schedule",
+                days_of_week="Mon,Tue,Wed,Thu,Fri",
+                time_str="08:00",
+                target_temp_heat=20.0
+            )
+        
         self.controller.schedule_hold_hours = 2
         self.controller._set_schedule_hold()
         
@@ -382,6 +391,14 @@ class TestThermostatController(unittest.TestCase):
         time_diff = (self.controller.schedule_hold_until - datetime.now()).total_seconds()
         self.assertGreater(time_diff, 7000)  # ~2 hours minus some buffer
         self.assertLess(time_diff, 7500)
+    
+    def test_set_schedule_hold_no_schedules(self):
+        """Test that no hold is set when no schedules exist"""
+        self.controller.schedule_hold_hours = 2
+        self.controller._set_schedule_hold()
+        
+        # Should NOT set hold when no schedules exist
+        self.assertIsNone(self.controller.schedule_hold_until)
     
     def test_resume_schedules(self):
         """Test resuming schedules clears hold"""
@@ -407,6 +424,15 @@ class TestThermostatController(unittest.TestCase):
     
     def test_handle_control_command_set_temperature_heat(self):
         """Test handling set temperature command for heat"""
+        # Create a schedule so hold will be set
+        if self.controller.db:
+            self.controller.db.create_schedule(
+                name="Test Schedule",
+                days_of_week="Mon,Tue,Wed,Thu,Fri",
+                time_str="08:00",
+                target_temp_heat=20.0
+            )
+        
         command = 'set_temperature'
         params = {'type': 'heat', 'temperature': 21.0}
         
@@ -414,6 +440,7 @@ class TestThermostatController(unittest.TestCase):
         
         self.assertTrue(result['success'])
         self.assertEqual(self.controller.target_temp_heat, 21.0)
+        # Should set hold when schedules exist
         self.assertIsNotNone(self.controller.schedule_hold_until)
     
     def test_handle_control_command_set_temperature_cool(self):

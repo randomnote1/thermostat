@@ -794,7 +794,23 @@ class ThermostatController:
             return {'success': False, 'error': str(e)}
     
     def _set_schedule_hold(self) -> None:
-        """Set a temporary hold on schedules after manual changes"""
+        """Set a temporary hold on schedules after manual changes
+        
+        Only activates if schedules exist in the database. If no schedules
+        are configured, there's nothing to override, so manual changes just
+        become the current active values.
+        """
+        # Don't set hold if no database or schedules configured
+        if not self.db:
+            return
+        
+        # Check if any schedules exist (enabled or disabled)
+        schedules = self.db.get_schedules(enabled_only=False)
+        if not schedules:
+            logger.debug("No schedules configured, manual change applied without hold")
+            return
+        
+        # Set hold only if configured and schedules exist
         if self.schedule_hold_hours > 0:
             self.schedule_hold_until = datetime.now() + timedelta(hours=self.schedule_hold_hours)
             logger.info(f"Schedule hold activated until {self.schedule_hold_until}")
