@@ -59,27 +59,29 @@ function toggleNav() {
 function toggleHistoryMenu(event) {
     // Only on mobile (when hamburger menu is visible)
     if (window.innerWidth <= 768) {
-        event.preventDefault();
-        const historySubnav = document.getElementById('history-subnav');
-        const historyToggle = event.currentTarget;
-        
-        historySubnav.classList.toggle('expanded');
-        historyToggle.classList.toggle('collapsed');
+      event.preventDefault();
+      const historySubnav = document.getElementById("history-subnav");
+      const historyToggle = event.currentTarget;
+
+      historySubnav.classList.toggle("expanded");
+      historyToggle.classList.toggle("collapsed");
+
+      return false; // Prevent navigation
     }
     // On desktop, allow normal navigation to /history
 }
 
 // Auto-expand history menu if on history page (mobile only)
-(function() {
-    if (window.innerWidth <= 768) {
-        const historyToggle = document.querySelector('.history-toggle');
-        if (historyToggle && historyToggle.classList.contains('active')) {
-            // We're on the history page, expand the submenu
-            const historySubnav = document.getElementById('history-subnav');
-            if (historySubnav) {
-                historySubnav.classList.add('expanded');
-                historyToggle.classList.remove('collapsed');
-            }
-        }
+window.addEventListener("DOMContentLoaded", function () {
+  if (window.innerWidth <= 768) {
+    const historyToggle = document.querySelector(".history-toggle");
+    if (historyToggle && historyToggle.classList.contains("active")) {
+      // We're on the history page, expand the submenu
+      const historySubnav = document.getElementById("history-subnav");
+      if (historySubnav) {
+        historySubnav.classList.add("expanded");
+        historyToggle.classList.remove("collapsed");
+      }
     }
-})();
+  }
+});
