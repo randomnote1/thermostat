@@ -223,6 +223,10 @@
                 color: #fed7d7;
                 border-color: #c53030;
             }
+
+            :root:not(.light-mode) .form-group input[type="time"]::-webkit-calendar-picker-indicator {
+                filter: invert(1);
+            }
         }
 
         :root.dark-mode .success-message {
@@ -235,6 +239,10 @@
             background: #742a2a;
             color: #fed7d7;
             border-color: #c53030;
+        }
+
+        :root.dark-mode .form-group input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
         }
 
         @media (max-width: 768px) {
