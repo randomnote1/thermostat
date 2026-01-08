@@ -148,13 +148,37 @@
             align-items: center;
             gap: 5px;
             padding: 8px 12px;
-            background: #edf2f7;
+            background: var(--sensor-bg);
+            border: 1px solid var(--input-border);
             border-radius: 5px;
             cursor: pointer;
+            color: var(--text-primary);
+            font-weight: normal;
+        }
+
+        .checkbox-group label:hover {
+            background: var(--mode-bg);
         }
 
         .checkbox-group input[type="checkbox"] {
             width: auto;
+            cursor: pointer;
+        }
+
+        .modal-content h2 {
+            color: var(--text-primary);
+            margin-bottom: 20px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-tertiary);
         }
 
         .success-message, .error-message {
@@ -167,11 +191,39 @@
         .success-message {
             background: #c6f6d5;
             color: #22543d;
+            border: 1px solid #9ae6b4;
         }
 
         .error-message {
             background: #fed7d7;
             color: #c53030;
+            border: 1px solid #fc8181;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not(.light-mode) .success-message {
+                background: #22543d;
+                color: #c6f6d5;
+                border-color: #2f855a;
+            }
+
+            :root:not(.light-mode) .error-message {
+                background: #742a2a;
+                color: #fed7d7;
+                border-color: #c53030;
+            }
+        }
+
+        :root.dark-mode .success-message {
+            background: #22543d;
+            color: #c6f6d5;
+            border-color: #2f855a;
+        }
+
+        :root.dark-mode .error-message {
+            background: #742a2a;
+            color: #fed7d7;
+            border-color: #c53030;
         }
 
         @media (max-width: 768px) {
