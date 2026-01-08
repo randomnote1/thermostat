@@ -381,7 +381,13 @@ class ThermostatDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT * FROM setting_history 
+                SELECT 
+                    id,
+                    setting_name,
+                    old_value,
+                    new_value,
+                    timestamp || 'Z' as timestamp
+                FROM setting_history 
                 ORDER BY timestamp DESC 
                 LIMIT ?
             ''', (limit,))
@@ -522,7 +528,7 @@ class ThermostatDatabase:
                         COALESCE(s.name, sh.sensor_name) as sensor_name,
                         sh.temperature,
                         sh.is_compromised,
-                        sh.timestamp
+                        sh.timestamp || 'Z' as timestamp
                     FROM sensor_history sh
                     LEFT JOIN sensors s ON sh.sensor_id = s.sensor_id
                     WHERE sh.sensor_id = ? 
@@ -538,7 +544,7 @@ class ThermostatDatabase:
                         COALESCE(s.name, sh.sensor_name) as sensor_name,
                         sh.temperature,
                         sh.is_compromised,
-                        sh.timestamp
+                        sh.timestamp || 'Z' as timestamp
                     FROM sensor_history sh
                     LEFT JOIN sensors s ON sh.sensor_id = s.sensor_id
                     WHERE sh.timestamp > datetime('now', '-' || ? || ' hours')
@@ -581,7 +587,19 @@ class ThermostatDatabase:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT * FROM hvac_history 
+                SELECT 
+                    id,
+                    system_temperature,
+                    target_temp_heat,
+                    target_temp_cool,
+                    hvac_mode,
+                    fan_mode,
+                    heat,
+                    cool,
+                    fan,
+                    heat2,
+                    timestamp || 'Z' as timestamp
+                FROM hvac_history 
                 WHERE timestamp > datetime('now', '-' || ? || ' hours')
                 ORDER BY timestamp DESC 
                 LIMIT ?
