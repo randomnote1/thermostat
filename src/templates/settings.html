@@ -210,8 +210,8 @@
         /* Stage configuration styles */
         .stage-control-row {
             display: grid;
-            grid-template-columns: 80px 70px 90px 110px 120px 110px 80px 100px;
-            gap: 8px;
+            grid-template-columns: 80px 70px 90px 110px 120px 1fr 80px 100px;
+            gap: 10px;
             align-items: center;
             padding: 12px;
             background: var(--sensor-bg);
@@ -234,20 +234,28 @@
             margin-bottom: 2px;
         }
 
-        .stage-control-row input[type="number"] {
+        .stage-control-row input[type="number"],
+        .stage-control-row input[type="text"] {
             padding: 6px 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            background: white;
+            background: var(--card-bg);
             color: var(--text-primary);
             font-size: 0.95em;
             width: 100%;
         }
 
+        .stage-control-row input[type="number"]:focus,
+        .stage-control-row input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
         .stage-header {
             display: grid;
-            grid-template-columns: 80px 70px 90px 110px 120px 110px 80px 100px;
-            gap: 8px;
+            grid-template-columns: 80px 70px 90px 110px 120px 1fr 80px 100px;
+            gap: 10px;
             padding: 10px 12px;
             font-weight: 600;
             color: var(--text-secondary);
@@ -299,10 +307,17 @@
             }
 
             :root:not(.light-mode) .sensor-control-row input[type="text"],
-            :root:not(.light-mode) .stage-control-row input[type="number"] {
+            :root:not(.light-mode) .stage-control-row input[type="number"],
+            :root:not(.light-mode) .stage-control-row input[type="text"] {
                 background: #374151;
                 border: 1px solid #4b5563;
                 color: #e2e8f0;
+            }
+
+            :root:not(.light-mode) .stage-control-row input[type="number"]:focus,
+            :root:not(.light-mode) .stage-control-row input[type="text"]:focus {
+                border-color: #a78bfa;
+                box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
             }
 
             :root:not(.light-mode) .sensor-id {
