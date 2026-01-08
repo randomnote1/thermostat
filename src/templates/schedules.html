@@ -255,6 +255,7 @@
             .modal {
                 overflow-y: auto;
                 align-items: flex-start;
+                display: flex;
             }
 
             .modal-content {
@@ -264,6 +265,12 @@
                 width: calc(100% - 40px);
                 max-width: calc(100% - 40px);
                 -webkit-overflow-scrolling: touch;
+                overflow: visible;
+            }
+
+            .form-group {
+                position: relative;
+                z-index: 1;
             }
         }
     </style>
