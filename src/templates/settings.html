@@ -56,62 +56,87 @@
         }
 
         .sensor-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .sensor-header-row {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-            gap: 15px;
+            grid-template-columns: 1fr 300px 80px;
+            gap: 10px;
+            padding: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 10px;
+            font-size: 0.85em;
+        }
+
+        .sensor-header-row div:last-child {
+            text-align: center;
         }
 
         .sensor-card {
-            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 300px 80px;
+            gap: 10px;
+            align-items: center;
+            padding: 15px 12px;
             background: var(--sensor-bg);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            border: 1px solid transparent;
+            margin-bottom: 10px;
+            transition: all 0.2s;
         }
 
-        .sensor-header {
+        .sensor-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-color: var(--border-color);
+        }
+
+        .sensor-name-section {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .sensor-name-section strong {
+            font-size: 1em;
+            color: var(--text-primary);
         }
 
         .sensor-id {
             font-family: monospace;
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: var(--text-secondary);
-            margin-top: 4px;
         }
 
-        .sensor-controls {
-            display: grid;
-            gap: 10px;
-        }
-
-        .sensor-control-row {
+        .sensor-input-section {
             display: flex;
-            gap: 15px;
             align-items: center;
         }
 
-        .sensor-control-row label {
-            min-width: 120px;
-            font-weight: 500;
-        }
-
-        .sensor-control-row input[type="text"] {
-            flex: 1;
+        .sensor-input-section input[type="text"] {
+            width: 100%;
             padding: 8px 12px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: white;
             color: var(--text-primary);
-            font-size: 1em;
+            font-size: 0.95em;
         }
 
-        .sensor-control-row input[type="text"]:focus {
+        .sensor-input-section input[type="text"]:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .sensor-enabled-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .checkbox-label {
@@ -543,32 +568,45 @@
             }
 
             /* Sensor configuration */
+            .sensor-header-row {
+                display: none;
+            }
+
             .sensor-list {
-                grid-template-columns: 1fr;
+                gap: 15px;
             }
 
             .sensor-card {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
                 padding: 15px;
+                border: 1px solid var(--border-color);
             }
 
-            .sensor-control-row {
+            .sensor-name-section {
+                padding-bottom: 10px;
+                border-bottom: 1px solid var(--border-color);
+            }
+
+            .sensor-input-section {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 8px;
-            }
-
-            .sensor-control-row label {
-                min-width: auto;
-                font-size: 0.9em;
-            }
-
-            .sensor-control-row input[type="text"] {
-                width: 100%;
-            }
-
-            .sensor-header {
-                flex-direction: column;
                 gap: 5px;
+            }
+
+            .sensor-input-section label {
+                font-weight: 600;
+                font-size: 0.85em;
+                color: var(--text-secondary);
+            }
+
+            .sensor-enabled-section {
+                justify-content: flex-start;
+            }
+
+            .sensor-enabled-section .checkbox-label {
+                font-size: 0.95em !important;
             }
 
             .sensor-id {
@@ -936,62 +974,54 @@
                 return;
             }
             
-            container.innerHTML = '';
+            container.innerHTML = `
+                <div class="sensor-header-row">
+                    <div>Sensor Name / ID</div>
+                    <div>Display Name</div>
+                    <div>Enabled</div>
+                </div>
+            `;
             
             currentSensors.forEach(sensor => {
                 const card = document.createElement('div');
                 card.className = 'sensor-card';
                 card.innerHTML = `
-                    <div class="sensor-header">
-                        <div>
-                            <strong>${escapeHtml(sensor.name || sensor.sensor_id)}</strong>
-                            <div class="sensor-id">ID: ${escapeHtml(sensor.sensor_id)}</div>
-                        </div>
+                    <div class="sensor-name-section">
+                        <strong>${escapeHtml(sensor.name || sensor.sensor_id)}</strong>
+                        <div class="sensor-id">ID: ${escapeHtml(sensor.sensor_id)}</div>
                     </div>
-                    <div class="sensor-controls">
-                        <div class="sensor-control-row">
-                            <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
+                    <div class="sensor-input-section">
+                        <label for="name-${escapeHtml(sensor.sensor_id)}">Display Name:</label>
+                        <input 
+                            type="text" 
+                            id="name-${escapeHtml(sensor.sensor_id)}"
+                            value="${escapeHtml(sensor.name || '')}"
+                            placeholder="e.g., Living Room"
+                            data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                            onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
+                        >
+                    </div>
+                    <div class="sensor-enabled-section">
+                        <label class="checkbox-label">
                             <input 
-                                type="text" 
-                                id="name-${escapeHtml(sensor.sensor_id)}"
-                                value="${escapeHtml(sensor.name || '')}"
-                                placeholder="e.g., Living Room"
+                                type="checkbox" 
+                                id="enabled-${escapeHtml(sensor.sensor_id)}"
+                                ${sensor.enabled ? 'checked' : ''}
                                 data-sensor-id="${escapeHtml(sensor.sensor_id)}"
+                                onchange="saveSensorField('${escapeHtml(sensor.sensor_id)}')"
                             >
-                        </div>
-                        <div class="sensor-control-row">
-                            <label class="checkbox-label">
-                                <input 
-                                    type="checkbox" 
-                                    id="enabled-${escapeHtml(sensor.sensor_id)}"
-                                    ${sensor.enabled ? 'checked' : ''}
-                                    data-sensor-id="${escapeHtml(sensor.sensor_id)}"
-                                >
-                                <span>Enabled (include in temperature calculations)</span>
-                            </label>
-                        </div>
-                        <div class="sensor-control-row">
-                            <button 
-                                class="save-button" 
-                                onclick="saveSensor('${escapeHtml(sensor.sensor_id)}')"
-                            >
-                                Save Changes
-                            </button>
-                        </div>
+                            <span>Enabled</span>
+                        </label>
                     </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        // Save sensor configuration
-        async function saveSensor(sensorId) {
+        // Save sensor configuration (auto-save on change)
+        async function saveSensorField(sensorId) {
             const nameInput = document.getElementById(`name-${sensorId}`);
             const enabledInput = document.getElementById(`enabled-${sensorId}`);
-            
-            const saveButton = event.target;
-            saveButton.disabled = true;
-            saveButton.textContent = 'Saving...';
             
             try {
                 const response = await fetch(`/api/sensors/config/${encodeURIComponent(sensorId)}`, {
@@ -1000,7 +1030,7 @@
                     body: JSON.stringify({
                         name: nameInput.value,
                         enabled: enabledInput.checked,
-                        monitored: enabledInput.checked  // Automatically match enabled state
+                        monitored: enabledInput.checked
                     })
                 });
                 
@@ -1009,22 +1039,17 @@
                     throw new Error(error.error || 'Failed to save sensor');
                 }
                 
-                showMessage(`Sensor "${nameInput.value || sensorId}" saved successfully`);
-                
                 // Update local data
                 const sensor = currentSensors.find(s => s.sensor_id === sensorId);
                 if (sensor) {
                     sensor.name = nameInput.value;
                     sensor.enabled = enabledInput.checked;
-                    sensor.monitored = monitoredInput.checked;
+                    sensor.monitored = enabledInput.checked;
                 }
                 
             } catch (error) {
                 console.error('Error saving sensor:', error);
                 showMessage('Error saving sensor: ' + error.message, true);
-            } finally {
-                saveButton.disabled = false;
-                saveButton.textContent = 'Save Changes';
             }
         }
 
